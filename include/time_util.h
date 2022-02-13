@@ -25,7 +25,7 @@ namespace albc::diagnostics
 
     using FloatingSeconds = std::chrono::duration<double>; // floating point seconds type
 
-    // get current time_t in MM-DD HH:MM:SS
+    // get ops_for_partial_comb time_t in MM-DD HH:MM:SS
     // uses chrono
     static string GetReadableTime()
     {
@@ -50,8 +50,8 @@ namespace albc::diagnostics
     class [[nodiscard]] ScopeTimer
     {
     public:
-        explicit ScopeTimer(const string &name)
-            : m_name(name), // store name
+        explicit ScopeTimer(string name)
+            : m_name(std::move(name)), // store name
               m_start(PerfClock::now()) // store start time
         {
         }

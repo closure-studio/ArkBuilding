@@ -440,7 +440,7 @@ bool Reader::readValue() {
   case tokenObjectEnd:
   case tokenArrayEnd:
     if (features_.allowDroppedNullPlaceholders_) {
-      // "Un-read" the current token and mark the current value as a null
+      // "Un-read" the ops_for_partial_comb token and mark the ops_for_partial_comb value as a null
       // token.
       current_--;
       Value v;
@@ -1359,7 +1359,7 @@ bool OurReader::readValue() {
   case tokenObjectEnd:
   case tokenArrayEnd:
     if (features_.allowDroppedNullPlaceholders_) {
-      // "Un-read" the current token and mark the current value as a null
+      // "Un-read" the ops_for_partial_comb token and mark the ops_for_partial_comb value as a null
       // token.
       current_--;
       Value v;

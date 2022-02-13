@@ -1,5 +1,7 @@
 #include <chrono>
 #include "worker.h"
+
+#define PROGRAMOPTIONS_NO_COLORS
 #include "ProgramOptions.hxx"
 
 int main(const int argc, char* argv[])

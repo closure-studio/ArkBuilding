@@ -22,5 +22,10 @@ namespace albc
 			phase(json_val_as_enum<EvolvePhase>(json["phase"])),
 			level(json["level"].asInt())
 		{ }
+
+		[[nodiscard]] constexpr bool Check(const EvolvePhase phase, const int level) const
+		{
+			return phase >= this->phase && level >= this->level;
+		}
 	};
 }

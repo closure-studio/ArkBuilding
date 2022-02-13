@@ -147,7 +147,7 @@ namespace albc
             bool do_append = true;
 			Iterator it = before_begin(); // before-begin node
             Forward* cur_seg = it.ptr;
-			for (it; it.HasNext(); ++it)
+			for (; it.HasNext(); ++it)
 			{
                 cur_seg = it.ptr;
                 if (fp_eq(cur_seg->data.ts, ts))

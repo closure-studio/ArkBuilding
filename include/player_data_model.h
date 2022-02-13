@@ -22,7 +22,7 @@ namespace albc
 	class PlayerTroop
 	{
 	public:
-		Dictionary<string, PlayerCharacter *> chars;
+		PtrDictionary<string, PlayerCharacter> chars;
 
 		explicit PlayerTroop(const Json::Value& json);
 	};
@@ -30,9 +30,23 @@ namespace albc
 	class PlayerDataModel
 	{
 	public:
-		PlayerTroop* troop;
-		bm::PlayerBuilding* building;
+		PlayerTroop troop;
+		bm::PlayerBuilding building;
 
 		explicit PlayerDataModel(const Json::Value& json);
 	};
+
+    class PlayerTroopLookup
+    {
+    public:
+        explicit PlayerTroopLookup(const PlayerTroop& troop);
+
+        [[nodiscard]] int GetInstId(const string& char_id) const;
+
+        [[nodiscard]] string GetCharId(int inst_id) const;
+
+    private:
+        Dictionary<string, int> char_id_to_inst_id;
+        Dictionary<int, string> inst_id_to_char_id;
+    };
 }

@@ -5,8 +5,9 @@ package building
 
 /*
 #cgo CFLAGS: -O3
-#cgo CXXFLAGS: -I${SRCDIR}/include -std=c++17 -fPIC -ffast-math -O3 -DNDEBUG
+#cgo CXXFLAGS: -I${SRCDIR}/include -std=c++17 -fPIC -ffast-math -O3 -DNDEBUG -DCGO -DUNICODE
 #cgo LDFLAGS: -O3
+
 #include <stdio.h>
 #include <stdlib.h>
 #include "go_bridge.h"

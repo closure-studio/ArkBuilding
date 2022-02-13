@@ -11,7 +11,7 @@ namespace albc
     // convert from UTF-8 to OS charset
     inline string toOSCharset(const string &src)
     {
-#ifdef _WIN32
+#if defined(_WIN32) && defined(NDEBUG) && !defined(CGO) && !(defined(UNICODE) || defined(_UNICODE))
         // conv utf8 to gbk
         int len = ::MultiByteToWideChar(CP_UTF8, 0, src.c_str(), -1, nullptr, 0);
         auto *wszGBK = new wchar_t[len + 1];

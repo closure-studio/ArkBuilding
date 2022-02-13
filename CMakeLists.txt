@@ -6,8 +6,7 @@ SET(CMAKE_CXXFLAGS "-Wall -Wextra -std=c++17 -fPIC -funroll-loops -ffast-math -s
 SET(CMAKE_CXX_FLAGS_DEBUG "$ENV{CXXFLAGS} -O0 -g -ggdb")
 SET(CMAKE_CXX_FLAGS_RELEASE "$ENV{CXXFLAGS} -O3 -DNDEBUG")
 SET(CMAKE_C_FLAGS_RELWITHDEBINFO "$ENV{CXXFLAGS} -O2 -g")
-set(CMAKE_CXX_STANDARD_LIBRARIES "-static-libgcc -static-libstdc++ -lwsock32 -lws2_32 ${CMAKE_CXX_STANDARD_LIBRARIES}")
-set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,-Bstatic,--whole-archive -lwinpthread -Wl,--no-whole-archive")
+set(CMAKE_CXX_STANDARD_LIBRARIES "-static-libgcc -static-libstdc++ ${CMAKE_CXX_STANDARD_LIBRARIES}")
 
 include_directories(exec)
 include_directories(include)
@@ -20,4 +19,6 @@ add_executable(albc
         jsoncpp.cpp
         player_building_model.cpp
         player_data_model.cpp
-        worker.cpp)
+        worker.cpp
+        go_bridge.cpp
+        go_bridge.h)

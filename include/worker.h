@@ -5,6 +5,7 @@
 #include "building_data_model.h"
 #include "simulator.h"
 #include "operator_model.h"
+#include "xml_util.h"
 
 namespace albc::worker
 {

@@ -1,12 +1,12 @@
 #pragma once
-#include "json/json.h"
 #include <string>
-#include "buff_model.h"
-#include "primitive_types.h"
 
-namespace albc
-{
-namespace bm
+#include "json/json.h"
+#include "primitive_types.h"
+#include "mem_util.h"
+#include "buff_primitives.h"
+
+namespace albc::bm
 {
 	enum class PlayerRoomState
 	{
@@ -104,9 +104,8 @@ namespace bm
 		explicit PlayerBuilding(const Json::Value &json);
 
 		PlayerBuildingLabor status_labor;
-		PlayerBuildingRoom* player_building_room = nullptr;
-		Dictionary<string, PlayerBuildingChar *> chars;
+		PlayerBuildingRoom player_building_room;
+		PtrDictionary<string, PlayerBuildingChar> chars;
 		List<int> assist;
 	};
-}
 }

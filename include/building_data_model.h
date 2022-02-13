@@ -1,3 +1,5 @@
+#pragma clang diagnostic push
+#pragma ide diagnostic ignored "OCUnusedGlobalDeclarationInspection"
 #pragma once
 #include "util.h"
 #include "primitive_types.h"
@@ -45,7 +47,7 @@ namespace albc::bm
 	public:
 		string char_id;
 		Int64 max_man_power;
-		Vector<BuildingBuffCharSlot *> buff_char;
+		PtrVector<BuildingBuffCharSlot> buff_char;
 
 		explicit BuildingCharacter(const Json::Value& json);
 	};
@@ -65,8 +67,8 @@ namespace albc::bm
 	class BuildingData
 	{
 	public:
-		Dictionary<string, BuildingCharacter *> chars;
-		Dictionary<string, BuildingBuff *> buffs;
+		PtrDictionary<string, BuildingCharacter> chars;
+		PtrDictionary<string, BuildingBuff> buffs;
 
 		explicit BuildingData(const Json::Value& json);
 	};
@@ -79,3 +81,4 @@ struct magic_enum::customize::enum_range<albc::bm::RoomType>
 	static constexpr int min = 0;
 	static constexpr int max = 4095;
 };
+#pragma clang diagnostic pop
