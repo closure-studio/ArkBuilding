@@ -8,8 +8,8 @@ namespace albc
 {
 BruteForce::BruteForce(const Vector<RoomModel *> &rooms, const Vector<OperatorModel *> &operators,
                        const double max_allowed_duration)
-    : Algorithm(rooms, operators), solution_(kRoomMaxBuffSlots), max_tot_delta_(0),
-      calc_cnt_(0), max_allowed_duration_(max_allowed_duration)
+    : Algorithm(rooms, operators), solution_(kRoomMaxBuffSlots), max_tot_delta_(0), calc_cnt_(0),
+      max_allowed_duration_(max_allowed_duration)
 {
 }
 
@@ -95,17 +95,18 @@ void BruteForce::MakePartialCombAndUpdateSolution(const Vector<OperatorModel *> 
                                                   RoomModel *room,
                                                   const std::bitset<kAlgOperatorSize> &enabled_root_ops)
 {
-    auto [max_delta, calc_cnt, solution] = MakePartialComb(operators, max_n, room, enabled_root_ops);
+    auto [max_delta, calc_cnt, solution, snapshot] = MakePartialComb(operators, max_n, room, enabled_root_ops);
 
     calc_cnt_ += calc_cnt;
     if (max_delta > max_tot_delta_)
     {
-        solution_.assign(solution.begin(), solution.begin() + max_n);
+        solution_.assign(solution.begin(), solution.end());
+        snapshot_.assign(snapshot.begin(), snapshot.end());
         max_tot_delta_ = max_delta;
     }
 }
 
-std::tuple<double, UInt32, Vector<OperatorModel *>> BruteForce::MakePartialComb(
+std::tuple<double, UInt32, Vector<OperatorModel *>, Vector<Vector<ModifierApplier>>> BruteForce::MakePartialComb(
     const Vector<OperatorModel *> &operators, UInt32 max_n, RoomModel *room,
     const std::bitset<kAlgOperatorSize> &enabled_root_ops) const
 // root operator is the first operator in a DFS path
@@ -118,9 +119,11 @@ std::tuple<double, UInt32, Vector<OperatorModel *>> BruteForce::MakePartialComb(
 
     UInt32 buff_cnt[kRoomMaxBuffSlots]{}; // buff_cnt[i] is the number of buffs in i-th recursion
     bool status[kRoomMaxBuffSlots]{};     // status[i] is the status of i-th recursion
-    Vector<OperatorModel *> current(max_n); // stores the ops_for_partial_comb solution, including operators in a unique combination
+    Vector<OperatorModel *> current(
+        max_n); // stores the ops_for_partial_comb solution, including operators in a unique combination
     Vector<OperatorModel *> solution(max_n); // stores the best solution
-    double max_tot_delta = 0.;               // max delta of the total production of the solution
+    Vector<Vector<ModifierApplier>> snapshot(max_n);
+    double max_tot_delta = 0.; // max delta of the total production of the solution
     double max_duration = max_allowed_duration_;
     bool is_all_ops = enabled_root_ops.all(); // avoid unnecessary checks of the root operators
 
@@ -153,6 +156,15 @@ std::tuple<double, UInt32, Vector<OperatorModel *>> BruteForce::MakePartialComb(
                     if (result > max_tot_delta)
                     {
                         solution.assign(current.begin(), current.begin() + max_n);
+                        std::transform(current.begin(), current.begin() + max_n, snapshot.begin(),
+                                       [](const OperatorModel *o) {
+                                           Vector<ModifierApplier> mods(o->buffs.size());
+                                           std::transform(o->buffs.begin(), o->buffs.end(), mods.begin(),
+                                                          [](const RoomBuff *b) { return b->applier; });
+
+                                           return mods;
+                                       });
+
                         max_tot_delta = result;
                     }
                 }
@@ -183,10 +195,10 @@ std::tuple<double, UInt32, Vector<OperatorModel *>> BruteForce::MakePartialComb(
         }
     }
 
-    return std::make_tuple(max_tot_delta, calc_cnt, solution);
+    return std::make_tuple(max_tot_delta, calc_cnt, solution, snapshot);
 }
 
-void BruteForce::PrintSolution(const RoomModel& room)
+void BruteForce::PrintSolution(const RoomModel &room)
 {
     int n_op = 1;
     printf("**** Solution ****\n");
@@ -205,10 +217,10 @@ void BruteForce::PrintSolution(const RoomModel& room)
         {
             printf("\tBuff #%d: %8s %s\n", n_buff, toOSCharset(buff->name).c_str(), buff->buff_id.c_str());
             printf("\t%s\n", toOSCharset(buff->description).c_str());
-            printf("\tMod:      %s\n\tFinal Mod:%s\n\tCost Mod: %s\n\n", 
-                    buff->applier.room_mod.to_string().c_str(),
-                    buff->applier.final_mod.to_string().c_str(), 
-                    buff->applier.cost_mod.to_string().c_str());
+            printf("\tMod:      %s\n\tFinal Mod:%s\n\tCost Mod: %s\n\n",
+                   snapshot_[n_op-1][n_buff-1].room_mod.to_string().c_str(),
+                   snapshot_[n_op-1][n_buff-1].final_mod.to_string().c_str(),
+                   snapshot_[n_op-1][n_buff-1].cost_mod.to_string().c_str());
 
             ++n_buff;
         }

@@ -50,6 +50,7 @@ class BruteForce : public Algorithm // 暴力枚举，计算出所有可能的�
   protected:
     Vector<OperatorModel *> solution_;
     Vector<OperatorModel *> inbound_ops_;
+    Vector<Vector<ModifierApplier>> snapshot_;
     double max_tot_delta_;
     UInt32 calc_cnt_;
     double max_allowed_duration_;
@@ -61,7 +62,7 @@ class BruteForce : public Algorithm // 暴力枚举，计算出所有可能的�
     void MakePartialCombAndUpdateSolution(const Vector<OperatorModel *> &operators, UInt32 max_n, RoomModel *room,
                                           const std::bitset<kAlgOperatorSize> &enabled_root_ops);
 
-    std::tuple<double, UInt32, Vector<OperatorModel *>> MakePartialComb(
+    std::tuple<double, UInt32, Vector<OperatorModel *>, Vector<Vector<ModifierApplier>>> MakePartialComb(
         const Vector<OperatorModel *> &operators, UInt32 max_n, RoomModel *room,
         const std::bitset<kAlgOperatorSize> &enabled_root_ops) const;
 
