@@ -13,8 +13,8 @@ namespace albc
 class Simulator
 {
   public:
-    static double DoCalc(const RoomModel *room, double max_allowed_duration) __attribute__((const))
-    __attribute__((always_inline))
+    static void __attribute__((always_inline))
+    DoCalc(const RoomModel *room, double max_allowed_duration, double& result, double& loss)
     {
         PiecewiseMap<kFuncPiecewiseMaxSegmentCount> eff_piecewise;
         ModifierScopeData scope;
@@ -145,14 +145,16 @@ class Simulator
 
         if (override != nullptr && override->IsValid()) // OVERRIDE_AND_CANCEL_ALL下, 除override外的所有modifier均失效
         {
-            return estimated_duration * (room->room_attributes.base_prod_eff + 
+            result = estimated_duration * (room->room_attributes.base_prod_eff + 
                                             override->eff_scale * indirect_eff_mul * override->eff_delta + 
                                             indirect_eff_delta);
+
+            
         }
 
         if (fp_eq(final_eff_mul, 0.)) // 所有非Final的modifier均失效
         {
-            return estimated_duration *
+            result = estimated_duration *
                    (room->room_attributes.base_prod_eff + final_eff_delta * indirect_eff_mul + indirect_eff_delta);
         }
 
@@ -200,7 +202,8 @@ class Simulator
                 perv_acc += def.acc_delta;
             }
         }
-        return Integrate(eff_piecewise, 0., estimated_duration, room->room_attributes.base_prod_eff); // integrate the piecewise function
+        result = Integrate(eff_piecewise, 0., estimated_duration, room->room_attributes.base_prod_eff); // integrate the piecewise function
+
     }
 
   protected:

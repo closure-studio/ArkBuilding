@@ -4,18 +4,40 @@
 #include "simulator.h"
 #include <bitset>
 
-namespace albc
+namespace albc::algorithm
 {
-BruteForce::BruteForce(const Vector<RoomModel *> &rooms, const Vector<OperatorModel *> &operators,
-                       const double max_allowed_duration)
-    : Algorithm(rooms, operators), solution_(kRoomMaxBuffSlots), max_tot_delta_(0), calc_cnt_(0),
-      max_allowed_duration_(max_allowed_duration)
+void Algorithm::FilterAgents(const RoomModel *room)
 {
+    inbound_ops_.clear();
+
+    for (auto *const ops : all_ops_)
+    {
+        if (ops->buffs.empty())
+        {
+            continue;
+        }
+
+        if (!check_flag(ops->room_type_mask, room->type))
+        {
+            continue;
+        }
+
+        if (!std::all_of(ops->buffs.begin(), ops->buffs.end(),
+                         [room](RoomBuff *buff) -> bool { return buff->ValidateTarget(room); }))
+        {
+            continue;
+        }
+
+        inbound_ops_.push_back(ops);
+    }
+    LOG_D << "Filtered " << inbound_ops_.size() << " operators for room: " << room->id << " : [P]"
+          << to_string(room->room_attributes.prod_type) << " [O]" << to_string(room->room_attributes.order_type)
+          << std::endl;
 }
 
 void BruteForce::Run()
 {
-    auto *const room = rooms[0];
+    auto *const room = rooms_[0];
     calc_cnt_ = 0;
 
     // filter operators
@@ -45,35 +67,6 @@ void BruteForce::Run()
     }
 }
 
-void BruteForce::FilterAgents(const RoomModel *room)
-{
-    inbound_ops_.clear();
-
-    for (auto *const ops : all_ops)
-    {
-        if (ops->buffs.empty())
-        {
-            continue;
-        }
-
-        if (!check_flag(ops->room_type_mask, room->type))
-        {
-            continue;
-        }
-
-        if (!std::all_of(ops->buffs.begin(), ops->buffs.end(),
-                         [room](RoomBuff *buff) -> bool { return buff->ValidateTarget(room); }))
-        {
-            continue;
-        }
-
-        inbound_ops_.push_back(ops);
-    }
-    LOG_D << "Filtered " << inbound_ops_.size() << " operators for room: " << room->id << " : [P]"
-          << to_string(room->room_attributes.prod_type) << " [O]" << to_string(room->room_attributes.order_type)
-          << std::endl;
-}
-
 // this function is a transform from recursive DFS to iterative DFS, using stack
 void BruteForce::MakeComb(const Vector<OperatorModel *> &operators, UInt32 max_n, RoomModel *room)
 {
@@ -91,8 +84,7 @@ void BruteForce::MakeComb(const Vector<OperatorModel *> &operators, UInt32 max_n
     } while (mutex_handler.MoveNext());
 }
 
-void BruteForce::MakePartialCombAndUpdateSolution(const Vector<OperatorModel *> &operators, UInt32 max_n,
-                                                  RoomModel *room,
+void BruteForce::MakePartialCombAndUpdateSolution(const Vector<OperatorModel *> &operators, UInt32 max_n, RoomModel *room,
                                                   const std::bitset<kAlgOperatorSize> &enabled_root_ops)
 {
     auto [max_delta, calc_cnt, solution, snapshot] = MakePartialComb(operators, max_n, room, enabled_root_ops);
@@ -152,7 +144,8 @@ std::tuple<double, UInt32, Vector<OperatorModel *>, Vector<Vector<ModifierApplie
                 if (dep >= max_n - 1)
                 {
                     ++calc_cnt;
-                    const double result = Simulator::DoCalc(room, max_duration);
+                    double result, loss;
+                    Simulator::DoCalc(room, max_duration, result, loss);
                     if (result > max_tot_delta)
                     {
                         solution.assign(current.begin(), current.begin() + max_n);

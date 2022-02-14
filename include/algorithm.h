@@ -4,9 +4,38 @@
 #include "operator_model.h"
 #include <bitset>
 
-namespace albc
+namespace albc::algorithm
 {
 static constexpr size_t kAlgOperatorSize = 512;
+
+/**
+ *
+ * @brief The Algorithm class
+ *
+ */
+class Algorithm
+{
+  public:
+    virtual ~Algorithm() = default;
+
+    Algorithm(const Vector<RoomModel *> &rooms, const Vector<OperatorModel *> &operators,
+              double max_allowed_duration = 3600 * 16)
+        : rooms_(rooms), all_ops_(operators), max_allowed_duration_(max_allowed_duration), 
+          solution_(kRoomMaxBuffSlots), snapshot_(kRoomMaxBuffSlots)
+    { }
+
+    virtual void Run() = 0; // 实现算法
+
+  protected:
+    Vector<RoomModel *> rooms_;
+    Vector<OperatorModel *> all_ops_;
+    Vector<OperatorModel *> inbound_ops_;
+    Vector<OperatorModel *> solution_;
+    Vector<Vector<ModifierApplier>> snapshot_;
+    double max_allowed_duration_;
+
+    void FilterAgents(const RoomModel *room);
+};
 
 class HardMutexResolver
 {
@@ -24,38 +53,16 @@ class HardMutexResolver
     Vector<UInt32> group_pos_;
 };
 
-class Algorithm
-{
-  public:
-    virtual ~Algorithm() = default;
-    Vector<RoomModel *> rooms;
-    Vector<OperatorModel *> all_ops;
-
-    Algorithm(const Vector<RoomModel *> &rooms, const Vector<OperatorModel *> &providers)
-        : rooms(rooms), all_ops(providers)
-    {
-    }
-
-    virtual void Run() = 0; // 实现算法
-};
-
 class BruteForce : public Algorithm // 暴力枚举，计算出所有可能的组合
 {
   public:
-    BruteForce(const Vector<RoomModel *> &rooms, const Vector<OperatorModel *> &operators,
-               double max_allowed_duration = 3600 * 8);
+    using Algorithm::Algorithm;
 
     void Run() override;
 
   protected:
-    Vector<OperatorModel *> solution_;
-    Vector<OperatorModel *> inbound_ops_;
-    Vector<Vector<ModifierApplier>> snapshot_;
-    double max_tot_delta_;
-    UInt32 calc_cnt_;
-    double max_allowed_duration_;
-
-    void FilterAgents(const RoomModel *room);
+    double max_tot_delta_ = -1;
+    UInt32 calc_cnt_ = 0;
 
     void MakeComb(const Vector<OperatorModel *> &operators, UInt32 max_n, RoomModel *room);
 
@@ -68,13 +75,6 @@ class BruteForce : public Algorithm // 暴力枚举，计算出所有可能的�
 
     void PrintSolution(const RoomModel &room);
 };
+} // namespace albc::algorithm
 
-class PatternSearch : public Algorithm // 模式搜索，根据预设的模式，搜索出最优的组合
-{
-  public:
-    PatternSearch(const Vector<RoomModel *> &rooms, const Vector<OperatorModel *> &operators,
-                  double max_allowed_duration = 3600 * 8);
-
-    void Run() override;
-};
-} // namespace albc
+using namespace albc::algorithm;

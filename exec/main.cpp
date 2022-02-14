@@ -37,6 +37,9 @@ int main(const int argc, char* argv[])
         .abbreviation('h')
         .description("produce help message");
 
+    auto& go_test = parser["go-test"]
+        .description("run golang API test");
+
     // parse command line
     if (!parser.parse(argc, argv))
     {

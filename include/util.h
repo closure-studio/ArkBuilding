@@ -46,7 +46,7 @@ namespace albc::util
 
     template <typename TVal> constexpr bool fp_eq(const TVal lhs, const TVal rhs)
     { // Floating point equality comparison, tolerance is 1e-7
-        return fabs(lhs - rhs) < static_cast<TVal>(kDoubleCmpTolerance);
+        return std::fabs(lhs - rhs) < static_cast<TVal>(kDoubleCmpTolerance);
     }
 
     template <typename TVal, typename Tn = int> constexpr TVal fp_round_n(const TVal val, const Tn n)

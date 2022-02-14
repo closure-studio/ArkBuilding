@@ -98,7 +98,7 @@ namespace albc::worker
 
         RoomModel trade_room;
         trade_room.type = bm::RoomType::TRADING;
-        trade_room.max_slot_count = 3;
+        trade_room.max_slot_count = 5;
         trade_room.room_attributes.base_prod_eff = 1.03;
         trade_room.id = "fake_room";
         write_attribute(trade_room.global_attributes, GlobalAttributeType::DORM_SUM_LEVEL, 25);
@@ -122,7 +122,7 @@ namespace albc::worker
 
         RoomModel manu_room;
         manu_room.type = bm::RoomType::MANUFACTURE;
-        manu_room.max_slot_count = 3;
+        manu_room.max_slot_count = 5;
         manu_room.room_attributes.base_prod_eff = 1.03;
         manu_room.id = "fake_room";
         write_attribute(manu_room.global_attributes, GlobalAttributeType::POWER_PLANT_CNT, 3);
