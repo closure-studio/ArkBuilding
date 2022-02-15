@@ -20,8 +20,9 @@ template <typename TEnum> constexpr auto json_val_as_enum(const Json::Value &val
 
 template <typename TEnum> constexpr TEnum json_string_as_enum(const Json::Value &val, const TEnum default_val)
 {
-    const auto enum_or_null = magic_enum::enum_cast<TEnum>(val.asString());
-    return enum_or_null.has_value() ? enum_or_null.value() : default_val;
+    //const auto enum_or_null = magic_enum::enum_cast<TEnum>(val.asString());
+    //return enum_or_null.has_value() ? enum_or_null.value() : default_val;
+    return parse_enum_string(val.asString(), default_val);
 }
 
 template <typename TValue> static auto json_val_as_dictionary(const Json::Value &val) -> Dictionary<string, TValue>
@@ -46,8 +47,6 @@ template <typename TValue>
 static Dictionary<string, TValue> json_val_as_dictionary(const Json::Value &val,
                                                          TValue (*val_factory)(const Json::Value &json))
 {
-    static_assert(std::is_constructible_v<TValue, const Json::Value &>,
-                  "TValue must be constructible from Json::Value");
     Dictionary<string, TValue> dict;
 
     const auto &names = val.getMemberNames();
@@ -98,7 +97,6 @@ template <typename T> [[maybe_unused]] static auto json_val_as_list(const Json::
 template <typename T>
 [[maybe_unused]] auto json_val_as_list(const Json::Value &val, T (*val_factory)(const Json::Value &json)) -> List<T>
 {
-    static_assert(std::is_constructible_v<T, const Json::Value &>, "T must be constructible from Json::Value");
     List<T> list;
     for (const auto &item : val)
     {
@@ -123,7 +121,6 @@ template <typename T> static auto json_val_as_vector(const Json::Value &val) -> 
 template <typename T>
 static auto json_val_as_vector(const Json::Value &val, T (*val_factory)(const Json::Value &json)) -> Vector<T>
 {
-    static_assert(std::is_constructible_v<T, const Json::Value &>, "T must be constructible from Json::Value");
     Vector<T> vec;
     for (const auto &item : val)
     {

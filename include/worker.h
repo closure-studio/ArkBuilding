@@ -1,13 +1,17 @@
 #pragma once
-#include "flag_util.h"
-#include "primitive_types.h"
 #include "buff_model.h"
 #include "building_data_model.h"
-#include "simulator.h"
+#include "flag_util.h"
 #include "operator_model.h"
+#include "primitive_types.h"
+#include "simulator.h"
+#include "worker_params.h"
 #include "xml_util.h"
 
 namespace albc::worker
 {
-	void work(const string& player_data_path, const string& game_data_path, int logLevel);
-}
+void run_test(const string &player_data_path, const string &game_data_path, LogLevel logLevel);
+
+void run_parallel_test(const string &player_data_path, const string &game_data_path, LogLevel logLevel,
+                       int parallel_cnt);
+} // namespace albc::worker

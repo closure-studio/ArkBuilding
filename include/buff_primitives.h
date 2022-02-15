@@ -31,8 +31,7 @@ enum class OrderType // order type
 {
     UNDEFINED,
     GOLD,
-    ORUNDUM,
-    E_NUM
+    ORUNDUM
 };
 
 // production type
@@ -42,8 +41,7 @@ enum class ProdType
     GOLD,
     RECORD,
     ORIGINIUM_SHARD,
-    CHIP,
-    E_NUM
+    CHIP
 };
 
 ///基建技能类型,每种类型对应一种图标
@@ -108,8 +106,7 @@ enum class RoomBuffType
     CC_VODKA,                          //乌萨斯特饮
     CC_TIDEWATCHER,                    //潮汐守望
     CC_PACK_HUNTERS,                   //集群狩猎
-    CC_NEUROTICISM,                    //神经质
-    E_NUM
+    CC_NEUROTICISM                    //神经质
 };
 
 // global attribute types
@@ -129,12 +126,11 @@ enum class GlobalAttributeType
     DORM_OPERATOR_CNT,  //宿舍内干员数
     GOLD_PROD_LINE_CNT, //全局赤金生产线数
     DORM_SUM_LEVEL,     //宿舍总等级
-    E_NUM
 };
 
 using GlobalAttributeFields = Array<double, enum_size<GlobalAttributeType>::value>;
 
-struct __attribute__((aligned(64))) __attribute__((packed)) RoomAttributeFields
+struct __attribute__((aligned(64))) RoomAttributeFields
 {
     ProdType prod_type = ProdType::UNDEFINED;
     OrderType order_type = OrderType::UNDEFINED;
@@ -151,7 +147,6 @@ enum class ModifierAttributeType
     CAP_DELTA, //生产容量增减
     EFF_SCALE, //生产效率倍数
     CAP_SCALE, //生产容量倍数（尚未使用）
-    E_NUM
 };
 
 enum class CharCostModifierType
@@ -161,7 +156,6 @@ enum class CharCostModifierType
     ROOM_ALL,         //影响房间内所有
     ROOM_EXCEPT_SELF, //影响房间内除自身外的所有
     ROOM_CLEAR_ALL,   //清除房间内所有
-    E_NUM
 };
 
 enum class RoomFinalAttributeModifierType //房间最终属性修改类型
@@ -170,10 +164,9 @@ enum class RoomFinalAttributeModifierType //房间最终属性修改类型
     ADDITIONAL,              //最终加成
     OVERRIDE_AND_CANCEL_ALL, //清除其他最终属性修改，只保留本属性修改
     INDIRECT,                //间接加成(如提高高品质订单概率), 当没有具体数据但是有确切的等效数据时使用
-    E_NUM
 };
 
-struct __attribute__((aligned(64))) __attribute__((packed)) RoomAttributeModifier
+struct __attribute__((aligned(64))) RoomAttributeModifier
 {
     RoomBuff *owner = nullptr;                        //指向房间buff
     RoomBuffType buff_type = RoomBuffType::UNDEFINED; // buff类型
@@ -191,7 +184,7 @@ struct __attribute__((aligned(64))) __attribute__((packed)) RoomAttributeModifie
         return validate(*this);
     }
 
-    string to_string() const
+    [[nodiscard]] string to_string() const
     {
         string str;
         str.reserve(256);
@@ -227,7 +220,7 @@ struct __attribute__((aligned(64))) __attribute__((packed)) RoomAttributeModifie
     }
 };
 
-struct __attribute__((aligned(16))) __attribute__((packed)) RoomFinalAttributeModifier : RoomAttributeModifier
+struct __attribute__((aligned(16))) RoomFinalAttributeModifier : RoomAttributeModifier
 {
     RoomFinalAttributeModifierType final_mod_type = RoomFinalAttributeModifierType::NONE; //最终属性修改类型
     double eff_scale = 1.; //生产效率倍数
@@ -272,7 +265,7 @@ struct __attribute__((aligned(32))) CharacterCostModifier
 
     auto operator!=(const CharacterCostModifier &other) const -> bool;
 
-    string to_string() const
+    [[nodiscard]] string to_string() const
     {
         string str;
         str.reserve(256);
@@ -346,7 +339,7 @@ class RoomModel //房间模型
         --n_buff;
     }
 
-    string to_string() const
+    [[nodiscard]] string to_string() const
     {
         string str;
         str.reserve(8192);

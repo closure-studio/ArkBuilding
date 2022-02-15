@@ -31,7 +31,7 @@ void AlbcTest(const char *game_data_path, const char *player_data_path)
         LOG_I << "Running test, with GameData: " << game_data << ", PlayerData: " << player_data << std::endl;
         {
             const auto &sc = SCOPE_TIMER_WITH_TRACE("albc::worker::work");
-            albc::worker::work(player_data, game_data, albc::diagnostics::Logger::LogLevel::INFO);
+            albc::worker::run_test(player_data, game_data, albc::diagnostics::LogLevel::INFO);
         }
         LOG_I << "Test completed" << std::endl;
     }

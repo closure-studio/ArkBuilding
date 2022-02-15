@@ -47,6 +47,7 @@ class HardMutexResolver
 
     HardMutexResolver(const Vector<OperatorModel *> &ops, bm::RoomType room_type);
     bool MoveNext();
+    bool HasMutexBuff();
 
   protected:
     Vector<Vector<OperatorModel *>> mutex_groups_;
@@ -73,7 +74,7 @@ class BruteForce : public Algorithm // 暴力枚举，计算出所有可能的�
         const Vector<OperatorModel *> &operators, UInt32 max_n, RoomModel *room,
         const std::bitset<kAlgOperatorSize> &enabled_root_ops) const;
 
-    void PrintSolution(const RoomModel &room);
+    void PrintSolution(const RoomModel &room, const LogLevel log_level = LogLevel::DEBUG);
 };
 } // namespace albc::algorithm
 

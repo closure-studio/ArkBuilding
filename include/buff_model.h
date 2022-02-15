@@ -17,7 +17,7 @@ namespace albc
 /**
  * @brief 描述Buff的作用范围类型, 即Buff效果由哪些因素决定
  */
-enum class ModifierScopeType : unsigned char
+enum class ModifierScopeType
 {
     INDEPENDENT,         //效果始终不变, 构造实例时初始化
     DEPEND_ON_ROOM,      //效果受全局变量影响, 进入新房间时初始化
@@ -120,6 +120,8 @@ class RoomBuff
         if (NeedUpdateScope(data))
         {
             UpdateScope(data);
+            if (this->applier.scope.type == ModifierScopeType::DEPEND_ON_ROOM)
+                this->applier.scope.data.room = data.room;
         }
     }
 
@@ -321,7 +323,7 @@ class IncEffByGlobalAttribute : public CloneableRoomBuff<IncEffByGlobalAttribute
                                    const GlobalAttributeType global_attribute_type, const bm::RoomType room_type_1,
                                    const RoomBuffType inner_type)
         : IncEffByGlobalAttribute(unit, addition_per_unit, global_attribute_type, room_type_1, inner_type)
-    { 
+    {
         base_delta_ = base_delta;
     }
 
@@ -565,8 +567,6 @@ class TexasTradeBuff : public CloneableRoomBuff<TexasTradeBuff>
         for (UInt32 i = 0; i < data.room->n_buff; ++i)
         {
             const auto buff = data.room->buffs[i];
-            if (buff->owner_inst_id == this->owner_inst_id)
-                continue;
 
             if (buff->owner_inst_id == lappland_char_inst_id_)
             {

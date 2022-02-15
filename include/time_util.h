@@ -13,8 +13,8 @@
 
 // this marco is used to measure the execution time of a scope, and prints filename, function name, line number, and duration
 #define SCOPE_TIMER_WITH_TRACE(name) albc::diagnostics::ScopeTimer(          \
-    albc::diagnostics::GetReadableTime() + "|TIMER|" + string(__FILENAME__) +\
-    STRINGIFY(:__LINE__:[ScopeTimer]) + name)
+    albc::diagnostics::GetReadableTime() + "|TIMER|" + string(__FILENAME__) + ":" +\
+    string(__PRETTY_FUNCTION__) + STRINGIFY(:__LINE__:[ScopeTimer]) + name)
 
 namespace albc::diagnostics
 {
@@ -59,7 +59,8 @@ namespace albc::diagnostics
         ~ScopeTimer()
         {
             // print name and duration
-            std::cout << m_name << ": Done in " << FloatingSeconds(PerfClock::now() - m_start).count() << "s" << std::endl;
+            double sec = FloatingSeconds(PerfClock::now() - m_start).count();
+            std::cout << m_name << ": Done in " << sec << "s" << std::endl;
         }
 
     private:

@@ -4,10 +4,11 @@
 #include <cstdint>
 #include <iostream>
 #include <memory>
+#include <sstream>
 
 // get filename, without path
 #ifndef __FILENAME__
-#define __FILENAME__ detail::strip_path(__FILE__) // NOLINT(bugprone-reserved-identifier)
+#define __FILENAME__ ::detail::strip_path(__FILE__) // NOLINT(bugprone-reserved-identifier)
 #endif
 
 // stringify a macro
@@ -132,7 +133,7 @@ namespace albc::util
         return file;
     } // this function can be evaluated at compile time
 
-    // convert a enum value to a string, using magic enum
+    // convert an enum value to a string, using magic enum
     // use std::enable_if and std::is_enum_v<T> to check if T is an enum
     template <typename T>
     constexpr string_view to_string(const T value, typename std::enable_if<std::is_enum_v<T>>::type * = nullptr)
@@ -143,9 +144,8 @@ namespace albc::util
     // extract the total number of elements in an enum
     template <typename T> class enum_size
     {
-      public: // we manually added a entry in the enum class named "E_NUM", so we can use it here
-              // "E_NUM" is the last element in the enum, so its value is the total number of elements
-        static constexpr size_t value = static_cast<size_t>(T::E_NUM);
+      public:
+        static constexpr size_t value = magic_enum::enum_count<T>();
     };
 
     // join static strings at compile time
@@ -186,6 +186,33 @@ namespace albc::util
             std::cout << "LazySingleton destructor called: " << __PRETTY_FUNCTION__ << std::endl;
         }
     };
+
+    template <typename TU> static constexpr bool is_pow_of_two(TU n)
+    {
+        return n && (!(n & (n - 1)));
+    }
+
+    template <typename TU> static constexpr int ctz(TU x)
+    {
+#ifdef __GNUC__
+        return __builtin_ctz(x);
+#else
+        return __lzcnt(x);
+#endif
+    }
+
+    template <typename TU> static string to_bin_string(const TU x)
+    {
+        std::stringstream ss;
+        ss << std::bitset<8 * sizeof(TU)>(x);
+        return ss.str();
+    }
+
+    template <typename TEnum> static constexpr TEnum parse_enum_string(const string& str, TEnum default_value)
+    {
+        const auto val_or_null = magic_enum::enum_cast<TEnum>(str);
+        return val_or_null.has_value() ? val_or_null.value() : default_value;
+    }
 } // namespace util
 
 namespace detail

@@ -14,7 +14,7 @@ int main(const int argc, char* argv[])
     po::parser parser;
     std::string game_data;
     std::string player_data;
-    int logLevel = albc::diagnostics::Logger::LogLevel::INFO;
+    auto logLevel = albc::diagnostics::LogLevel::WARN;
 
     // add options to parser
     // add playerdata and gamedata to parser
@@ -40,6 +40,9 @@ int main(const int argc, char* argv[])
     auto& go_test = parser["go-test"]
         .description("run golang API test");
 
+    auto& parallel_test = parser["parallel-test"]
+        .description("run parallel test");
+
     // parse command line
     if (!parser.parse(argc, argv))
     {
@@ -55,8 +58,10 @@ int main(const int argc, char* argv[])
 
     if (debug.was_set())
     {
-        logLevel = albc::diagnostics::Logger::LogLevel::DEBUG;
+        logLevel = albc::diagnostics::LogLevel::DEBUG;
     }
+
+    GlobalLogConfig::SetLogLevel(logLevel);
 
     // check if all required options are set
     if (player_data.empty() || game_data.empty())
@@ -81,7 +86,9 @@ int main(const int argc, char* argv[])
         auto start = std::chrono::high_resolution_clock::now();
 
         LOG_I << "Main process started." << std::endl;
-        const auto& elapsed = MeasureTime(albc::worker::work, player_data, game_data, logLevel);
+        const auto& elapsed = parallel_test.was_set()
+            ? MeasureTime(albc::worker::run_parallel_test, player_data, game_data, logLevel, 100)
+            : MeasureTime(albc::worker::run_test, player_data, game_data, logLevel);
         LOG_I << "Main process successfully completed in " << elapsed.count() << "s." << std::endl;
 
 		return 0;

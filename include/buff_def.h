@@ -247,14 +247,14 @@ static void init_buffs(Dictionary<string, RoomBuff *> &buffs)
         new BasicInc(0.3, 0, -0.25, CharCostModifierType::SELF, bm::RoomType::TRADING, RoomBuffType::TRADING_COMM);
 
     // "trade_ord_spd&cost_P[000]": 恩怨: 当与拉普兰德在同一个贸易站时，心情每小时消耗+0.3，订单获取效率+65%
-    buffs["trade_ord_limit&cost_P[010]"] = new TexasTradeBuff(false);
+    buffs["trade_ord_limit&cost_P[000]"] = new TexasTradeBuff(false);
 
     // "trade_ord_spd&dorm&lv[000]": 虔诚筹款·α: 进驻贸易站时，每间宿舍每级+1%获取效率
     buffs["trade_ord_spd&dorm&lv[000]"] = new IncEffByGlobalAttribute(
        1, 0.01, GlobalAttributeType::DORM_SUM_LEVEL, bm::RoomType::TRADING, RoomBuffType::TRADING_FUNDRAISING);
 
     // "trade_ord_spd&dorm&lv[010]": 虔诚筹款·β: 进驻贸易站时，每间宿舍每级+2%获取效率
-    buffs["trade_ord_spd&dorm&lv[000]"] = new IncEffByGlobalAttribute(
+    buffs["trade_ord_spd&dorm&lv[010]"] = new IncEffByGlobalAttribute(
         1, 0.02, GlobalAttributeType::DORM_SUM_LEVEL, bm::RoomType::TRADING, RoomBuffType::TRADING_FUNDRAISING);
 
     // "trade_ord_spd&gold[000]": 物流规划·α: 进驻贸易站时，订单获取效率+5%，每有4条赤金生产线，则当前贸易站订单获取效率额外+15% 
@@ -262,7 +262,7 @@ static void init_buffs(Dictionary<string, RoomBuff *> &buffs)
         0.05, 4, 0.15, GlobalAttributeType::GOLD_PROD_LINE_CNT, bm::RoomType::TRADING, RoomBuffType::TRADING_ORDER_FLOW_VISUALIZATION);
 
     // "trade_ord_spd&gold[010]": 物流规划·β: 进驻贸易站时，订单获取效率+5%，每有2条赤金生产线，则当前贸易站订单获取效率额外+15%
-    buffs["trade_ord_spd&gold[000]"] = new IncEffByGlobalAttribute(
+    buffs["trade_ord_spd&gold[010]"] = new IncEffByGlobalAttribute(
         0.05, 2, 0.15, GlobalAttributeType::GOLD_PROD_LINE_CNT, bm::RoomType::TRADING, RoomBuffType::TRADING_ORDER_FLOW_VISUALIZATION);
 
     // "trade_ord_spd&limit[000]": 订单管理·α: 进驻贸易站时，订单获取效率+10%，且订单上限+2

@@ -5,52 +5,85 @@
 #include <iomanip>
 #include <iostream>
 #include <sstream>
+#include <mutex>
+#include <queue>
+
+#define ALBC_LOG_UNIQUE2(name, id) $##name##$##id
+#define ALBC_LOG_UNIQUE(name, id) ALBC_LOG_UNIQUE2(name, id)
 
 #define ALBC_LOG_COMPILE_TIME_DEFINE_CONSTEXPR_STRING_VIEW(n, s) static constexpr std::string_view n = s;
 
-#define ALBC_LOG_COMPILE_TIME_DEFINE_LOC_STRING_VIEW(id)                                                               \
-    ALBC_LOG_COMPILE_TIME_DEFINE_CONSTEXPR_STRING_VIEW($filename$##id, __FILENAME__)                                   \
-    ALBC_LOG_COMPILE_TIME_DEFINE_CONSTEXPR_STRING_VIEW($funcname$##id, __PRETTY_FUNCTION__)                            \
-    ALBC_LOG_COMPILE_TIME_DEFINE_CONSTEXPR_STRING_VIEW($line$##id, STRINGIFY(__LINE__))
+#define ALBC_LOG_COMPILE_TIME_BUILD_TAG(name, id)                                                                      \
+    ALBC_LOG_COMPILE_TIME_DEFINE_CONSTEXPR_STRING_VIEW(ALBC_LOG_UNIQUE(filename, id), __FILENAME__)                    \
+    ALBC_LOG_COMPILE_TIME_DEFINE_CONSTEXPR_STRING_VIEW(ALBC_LOG_UNIQUE(funcname, id), __PRETTY_FUNCTION__)             \
+    ALBC_LOG_COMPILE_TIME_DEFINE_CONSTEXPR_STRING_VIEW(ALBC_LOG_UNIQUE(line, id), STRINGIFY(__LINE__))                 \
+    static constexpr std::string_view ALBC_LOG_UNIQUE(name, id) =                                                      \
+        albc::util::join_v<ALBC_LOG_UNIQUE(filename, id), albc::diagnostics::kColonSep, ALBC_LOG_UNIQUE(funcname, id), \
+                           albc::diagnostics::kColonSep, ALBC_LOG_UNIQUE(line, id), albc::diagnostics::kBarSep>;
 
-#define ALBC_LOG_COMPILE_TIME_BUILD_LOC_STRING(id)                                                                     \
-    ALBC_LOG_COMPILE_TIME_DEFINE_LOC_STRING_VIEW(id)                                                                   \
-    static constexpr auto $loc$##id =                                                                                  \
-        albc::util::join_v<$filename$##id, albc::diagnostics::kColonSep, $funcname$##id, albc::diagnostics::kColonSep, \
-                           $line$##id, albc::diagnostics::kBarSep>;
+#define ALBC_LOG_DO_S_LOG_PUT_TAG(target, content) target << content
 
-#define ALBC_LOG_PUT_STREAM(target, var, id) target << var##id
+#define ALBC_LOG_DO_S_LOG(id, target)                                                                                  \
+    ALBC_LOG_COMPILE_TIME_BUILD_TAG(loc, id)                                                                           \
+    ALBC_LOG_DO_S_LOG_PUT_TAG(target, ALBC_LOG_UNIQUE(loc, id))
 
-#define ALBC_LOG_DO_STREAMED_LOG(id, target)                                                                           \
-    ALBC_LOG_COMPILE_TIME_BUILD_LOC_STRING(id)                                                                         \
-    ALBC_LOG_PUT_STREAM(target, $loc$, id)
+#define S_LOG(target) ALBC_LOG_DO_S_LOG(__COUNTER__, target)
 
-#define GET_LOGGER_WITH_LEVEL(level) albc::diagnostics::Logger::instance()->operator()(level)
-#define LOG_I ALBC_LOG_DO_STREAMED_LOG(__COUNTER__, GET_LOGGER_WITH_LEVEL(albc::diagnostics::Logger::INFO))
-#define LOG_W ALBC_LOG_DO_STREAMED_LOG(__COUNTER__, GET_LOGGER_WITH_LEVEL(albc::diagnostics::Logger::WARN))
-#define LOG_D ALBC_LOG_DO_STREAMED_LOG(__COUNTER__, GET_LOGGER_WITH_LEVEL(albc::diagnostics::Logger::DEBUG))
-#define LOG_E ALBC_LOG_DO_STREAMED_LOG(__COUNTER__, GET_LOGGER_WITH_LEVEL(albc::diagnostics::Logger::ERR))
+#define CREATE_LOGGER(id)                                                                                              \
+    albc::diagnostics::Logger ALBC_LOG_UNIQUE(logr, id);                                                               \
+    ALBC_LOG_UNIQUE(logr, id)
+
+#define GET_LOGGER_WITH_LEVEL(level) CREATE_LOGGER(__COUNTER__)(level)
+#define LOG_I S_LOG(GET_LOGGER_WITH_LEVEL(albc::diagnostics::LogLevel::INFO))
+#define LOG_W S_LOG(GET_LOGGER_WITH_LEVEL(albc::diagnostics::LogLevel::WARN))
+#define LOG_D S_LOG(GET_LOGGER_WITH_LEVEL(albc::diagnostics::LogLevel::DEBUG))
+#define LOG_E S_LOG(GET_LOGGER_WITH_LEVEL(albc::diagnostics::LogLevel::ERROR))
 
 namespace albc::diagnostics
 {
 static constexpr std::string_view kBarSep = "|";
 static constexpr std::string_view kColonSep = ":";
 
-class Logger : public LazySingleton<Logger>
+enum class LogLevel
+{
+    DEBUG = 0,
+    INFO = 1,
+    WARN = 2,
+    ERROR = 3
+};
+
+class GlobalLogConfig
+{
+    public:
+    static LogLevel GetLogLevel()
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        return log_level_;
+    }
+
+    static void SetLogLevel(LogLevel level)
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        log_level_ = level;
+    }
+
+    static bool CanLog(LogLevel level)
+    {
+        return GetLogLevel() <= level;
+    }
+
+    private:
+    inline static LogLevel log_level_;
+    inline static std::mutex mutex_;
+};
+
+class Logger
 {
   public:
     typedef std::ostream &(*ManipFn)(std::ostream &);
     typedef std::ios_base &(*FlagsFn)(std::ios_base &);
 
-    enum LogLevel
-    {
-        DEBUG,
-        INFO,
-        WARN,
-        ERR,
-    };
-
-    Logger() : m_logLevel(INFO)
+    Logger() : m_logLevel(LogLevel::INFO)
     {
     }
 
@@ -77,9 +110,9 @@ class Logger : public LazySingleton<Logger>
         return *this;
     }
 
-    Logger &operator()(int e)
+    Logger &operator()(LogLevel level)
     {
-        m_logLevel = e;
+        m_logLevel = level;
         return *this;
     }
 
@@ -91,10 +124,16 @@ class Logger : public LazySingleton<Logger>
           Send to console, file, socket, or whatever you like here.
         */
         // put the message to std::cerr if log level is error
-        (m_logLevel == ERR ? std::cerr : std::cout)
-            << GetReadableTime().append("|").append(GetLogLevelString(m_logLevel)).append("|").append(m_stream.str());
+        if (GlobalLogConfig::CanLog(m_logLevel))
+        {
+            (m_logLevel == LogLevel::ERROR ? std::cerr : std::cout) << GetReadableTime()
+                                                                       .append("|")
+                                                                       .append(GetLogLevelString(m_logLevel))
+                                                                       .append("|")
+                                                                       .append(m_stream.str());
 
-        m_logLevel = INFO;
+            m_logLevel = LogLevel::INFO;
+        }
 
         m_stream.str(std::string());
         m_stream.clear();
@@ -102,20 +141,20 @@ class Logger : public LazySingleton<Logger>
 
   private:
     std::stringstream m_stream;
-    int m_logLevel;
+    LogLevel m_logLevel;
 
     // get log level as string
-    static string GetLogLevelString(int e)
+    static string GetLogLevelString(LogLevel e)
     {
         switch (e)
         {
-        case INFO:
+        case LogLevel::INFO:
             return "INFO ";
-        case WARN:
+        case LogLevel::WARN:
             return "WARN ";
-        case ERR:
+        case LogLevel::ERROR:
             return "ERROR";
-        case DEBUG:
+        case LogLevel::DEBUG:
             return "DEBUG";
         default:
             return "UNKNOWN";

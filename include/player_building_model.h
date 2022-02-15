@@ -14,6 +14,23 @@ namespace albc::bm
 		RUN = 1,
 	};
 
+    enum class PlayerRoomSlotState
+    {
+        EMPTY = 0,
+        UPGRADING = 1,
+        BUILD = 2
+    };
+
+    struct PlayerBuildingRoomSlot
+    {
+        explicit PlayerBuildingRoomSlot(const Json::Value& json);
+
+        int level;
+        PlayerRoomSlotState state;
+        RoomType room_id;
+        Vector<int> char_inst_ids;
+    };
+
 	struct BuildingBuffDisplay
 	{
 		explicit BuildingBuffDisplay(const Json::Value &json);
@@ -35,12 +52,29 @@ namespace albc::bm
 		int work_time;
 	};
 
+    enum class ManufactureFormulaId
+    {
+        RECORD_1 = 1,
+        RECORD_2 = 2,
+        RECORD_3 = 3,
+        GOLD = 4,
+        CHIP_1 = 5,
+        CHIP_2 = 6,
+        CHIP_3 = 7,
+        CHIP_4 = 8,
+        CHIP_5 = 9,
+        CHIP_6 = 10,
+        CHIP_7 = 11,
+        CHIP_8 = 12,
+        ORIGINIUM_SHARD = 13,
+    };
+
 	struct PlayerBuildingManufacture
 	{
 		explicit PlayerBuildingManufacture(const Json::Value &json);
 
 		PlayerRoomState state;
-		string formula_id;
+		ManufactureFormulaId formula_id;
 		int remain_sln_cnt;
 		int output_sln_cnt;
 		int capacity;
@@ -104,6 +138,7 @@ namespace albc::bm
 		explicit PlayerBuilding(const Json::Value &json);
 
 		PlayerBuildingLabor status_labor;
+        Dictionary<string, PlayerBuildingRoomSlot> room_slots;
 		PlayerBuildingRoom player_building_room;
 		PtrDictionary<string, PlayerBuildingChar> chars;
 		List<int> assist;

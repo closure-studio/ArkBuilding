@@ -77,11 +77,14 @@ void BruteForce::MakeComb(const Vector<OperatorModel *> &operators, UInt32 max_n
 
     MakePartialCombAndUpdateSolution(mutex_handler.non_mutex_ops, max_n, room, enabled_ops);
 
-    do
+    if (mutex_handler.HasMutexBuff())
     {
-        MakePartialCombAndUpdateSolution(mutex_handler.ops_for_partial_comb, max_n, room,
-                                         mutex_handler.enabled_ops_for_partial_comb);
-    } while (mutex_handler.MoveNext());
+        do
+        {
+            MakePartialCombAndUpdateSolution(mutex_handler.ops_for_partial_comb, max_n, room,
+                                             mutex_handler.enabled_ops_for_partial_comb);
+        } while (mutex_handler.MoveNext());
+    }
 }
 
 void BruteForce::MakePartialCombAndUpdateSolution(const Vector<OperatorModel *> &operators, UInt32 max_n, RoomModel *room,
@@ -191,8 +194,13 @@ std::tuple<double, UInt32, Vector<OperatorModel *>, Vector<Vector<ModifierApplie
     return std::make_tuple(max_tot_delta, calc_cnt, solution, snapshot);
 }
 
-void BruteForce::PrintSolution(const RoomModel &room)
+void BruteForce::PrintSolution(const RoomModel &room, const LogLevel log_level)
 {
+    if (!GlobalLogConfig::CanLog(log_level))
+    {
+        return;
+    }
+    
     int n_op = 1;
     printf("**** Solution ****\n");
     printf(room.to_string().c_str());
@@ -313,5 +321,9 @@ bool HardMutexResolver::MoveNext()
         group_idx++;
     }
     return !next;
+}
+bool HardMutexResolver::HasMutexBuff()
+{
+    return !mutex_groups_.empty();
 }
 } // namespace albc
