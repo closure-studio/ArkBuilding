@@ -2,6 +2,7 @@
 
 #include "buff_model.h"
 #include "primitive_types.h"
+#include "time_util.h"
 
 namespace albc::buff_map
 {
@@ -247,7 +248,7 @@ static void init_buffs(Dictionary<string, RoomBuff *> &buffs)
         new BasicInc(0.3, 0, -0.25, CharCostModifierType::SELF, bm::RoomType::TRADING, RoomBuffType::TRADING_COMM);
 
     // "trade_ord_spd&cost_P[000]": 恩怨: 当与拉普兰德在同一个贸易站时，心情每小时消耗+0.3，订单获取效率+65%
-    buffs["trade_ord_limit&cost_P[000]"] = new TexasTradeBuff(false);
+    buffs["trade_ord_spd&cost_P[000]"] = new TexasTradeBuff(false);
 
     // "trade_ord_spd&dorm&lv[000]": 虔诚筹款·α: 进驻贸易站时，每间宿舍每级+1%获取效率
     buffs["trade_ord_spd&dorm&lv[000]"] = new IncEffByGlobalAttribute(

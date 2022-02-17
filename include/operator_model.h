@@ -97,8 +97,9 @@ class OperatorModel // 表明一个干员, 包括其属性、buff
                                        {
                                            LOG_D << "Removing buff " << buff->buff_id << " from operator "
                                                  << buff->owner_char_id << endl;
-                                       }
 
+                                           delete buff;
+                                       }
                                        return remove;
                                    }),
                     buffs.end());

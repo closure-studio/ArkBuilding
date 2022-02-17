@@ -61,7 +61,7 @@ static Dictionary<string, TValue> json_val_as_dictionary(const Json::Value &val,
     return dict;
 } // Reads json object and assigns its keys and values to a Map, use a value factory to create the values
 
-template <typename TValue, template <class> typename TPtr = std::unique_ptr>
+template <typename TValue, template <class...> typename TPtr = std::unique_ptr>
 static PtrDictionary<string, TValue, TPtr> json_val_as_ptr_dictionary(const Json::Value &val)
 {
     static_assert(std::is_constructible_v<TValue, const Json::Value &>,
@@ -130,7 +130,7 @@ static auto json_val_as_vector(const Json::Value &val, T (*val_factory)(const Js
     return vec;
 } // Reads json array and assigns its items to a Vector, use a value factory to create the values
 
-template <typename T, template <class> typename TPtr = std::unique_ptr>
+template <typename T, template <class...> typename TPtr = std::unique_ptr>
 static PtrVector<T, TPtr> json_val_as_ptr_vector(const Json::Value &val)
 {
     static_assert(std::is_constructible_v<T, const Json::Value &>, "T must be constructible from Json::Value");

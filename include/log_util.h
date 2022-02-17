@@ -1,12 +1,13 @@
 // ReSharper disable CppClangTidyCppcoreguidelinesMacroUsage
 #pragma once
-#include "time_util.h"
+#include "ConcurrentQueue/blockingconcurrentqueue.h"
 #include "util.h"
+#include <condition_variable>
 #include <iomanip>
 #include <iostream>
-#include <sstream>
 #include <mutex>
 #include <queue>
+#include <sstream>
 
 #define ALBC_LOG_UNIQUE2(name, id) $##name##$##id
 #define ALBC_LOG_UNIQUE(name, id) ALBC_LOG_UNIQUE2(name, id)
@@ -54,10 +55,9 @@ enum class LogLevel
 
 class GlobalLogConfig
 {
-    public:
+  public:
     static LogLevel GetLogLevel()
     {
-        std::lock_guard<std::mutex> lock(mutex_);
         return log_level_;
     }
 
@@ -72,9 +72,80 @@ class GlobalLogConfig
         return GetLogLevel() <= level;
     }
 
-    private:
+  private:
     inline static LogLevel log_level_;
     inline static std::mutex mutex_;
+};
+
+class ThreadedConsoleLogger
+{
+  public:
+    ThreadedConsoleLogger() : queue_(512), thread_([this]() { MainLoop(); })
+    {
+    }
+
+    ~ThreadedConsoleLogger()
+    {
+        running_ = false;
+        cv_.notify_one();
+        thread_.join();
+    }
+
+    void Log(LogLevel level, const string &str)
+    {
+        if (GlobalLogConfig::CanLog(level))
+        {
+            if (!queue_.try_enqueue(str))
+            {
+                std::cerr << "Failed to enqueue log message :" << str << std::endl;
+                return;
+            }
+            {
+                std::unique_lock<std::mutex> lock(cv_mutex_);
+                has_new_ = true;
+            }
+            cv_.notify_one();
+        }
+    }
+
+  private:
+    std::condition_variable cv_;
+    std::mutex cv_mutex_;
+    std::thread thread_;
+    bool running_ = true;
+    bool has_new_ = false;
+    moodycamel::ConcurrentQueue<string> queue_;
+
+    void MainLoop()
+    {
+        const size_t bulk_reserve_size = 64;
+        
+        while (true)
+        {
+            std::unique_lock<std::mutex> lock(cv_mutex_);
+            cv_.wait(lock, [this]() { return has_new_ || !running_; });
+            if (!running_)
+            {
+                break;
+            }
+            has_new_ = false;
+
+            string msg_list[bulk_reserve_size];
+            size_t bulk_size = queue_.try_dequeue_bulk(msg_list, bulk_reserve_size);
+
+            for (int i = 0; i < bulk_size; ++i)
+            {
+                const auto &msg = msg_list[i];
+                std::cout << msg;
+                // auto add new line
+                const auto &back = msg.back();
+                if (back != '\n' && back != '\r')
+                {
+                    std::cout << '\n';
+                }
+            }
+        }
+    }
 };
 
 class Logger
@@ -94,12 +165,12 @@ class Logger
         return *this;
     }
 
-    Logger &operator<<(ManipFn manip) /// endl, flush, setw, setfill, etc.
+    Logger &operator<<(ManipFn manip) /// endl, Flush, setw, setfill, etc.
     {
         manip(m_stream);
 
         if (manip == static_cast<ManipFn>(std::flush) || manip == static_cast<ManipFn>(std::endl))
-            this->flush();
+            this->Flush();
 
         return *this;
     }
@@ -116,23 +187,22 @@ class Logger
         return *this;
     }
 
-    void flush()
+    void Flush()
     {
         /*
           m_stream.str() has your full message here.
           Good place to prepend time, log-level.
           Send to console, file, socket, or whatever you like here.
         */
-        // put the message to std::cerr if log level is error
         if (GlobalLogConfig::CanLog(m_logLevel))
         {
-            (m_logLevel == LogLevel::ERROR ? std::cerr : std::cout) << GetReadableTime()
-                                                                       .append("|")
-                                                                       .append(GetLogLevelString(m_logLevel))
-                                                                       .append("|")
-                                                                       .append(m_stream.str());
-
-            m_logLevel = LogLevel::INFO;
+            LazySingleton<ThreadedConsoleLogger>::instance()->Log(
+                m_logLevel,
+                GetReadableTime()
+                    .append("|")
+                    .append(GetLogLevelString(m_logLevel))
+                    .append("|")
+                    .append(m_stream.str()));
         }
 
         m_stream.str(std::string());

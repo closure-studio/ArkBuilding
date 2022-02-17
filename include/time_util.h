@@ -9,11 +9,13 @@
 #include <chrono>
 #include <functional>
 #include <type_traits>
-#include "./primitive_types.h"
+#include "primitive_types.h"
+#include "log_util.h"
+#include "util.h"
 
 // this marco is used to measure the execution time of a scope, and prints filename, function name, line number, and duration
 #define SCOPE_TIMER_WITH_TRACE(name) albc::diagnostics::ScopeTimer(          \
-    albc::diagnostics::GetReadableTime() + "|TIMER|" + string(__FILENAME__) + ":" +\
+    albc::util::GetReadableTime() + "|TIMER|" + string(__FILENAME__) + ":" +\
     string(__PRETTY_FUNCTION__) + STRINGIFY(:__LINE__:[ScopeTimer]) + name)
 
 namespace albc::diagnostics
@@ -24,18 +26,6 @@ namespace albc::diagnostics
         std::chrono::steady_clock>::type;              // if not, use std::chrono::steady_clock
 
     using FloatingSeconds = std::chrono::duration<double>; // floating point seconds type
-
-    // get ops_for_partial_comb time_t in MM-DD HH:MM:SS
-    // uses chrono
-    static string GetReadableTime()
-    {
-        auto now = std::chrono::system_clock::now();
-        auto in_time_t = std::chrono::system_clock::to_time_t(now);
-        auto tm = *std::localtime(&in_time_t);
-        char buffer[64];
-        std::strftime(buffer, sizeof(buffer), "%m-%d.%H:%M:%S", &tm);
-        return string{buffer};
-    }
 
     // measures the time of a function call, does not require a lambda expression
     template <typename Func, typename... Args>
@@ -50,9 +40,10 @@ namespace albc::diagnostics
     class [[nodiscard]] ScopeTimer
     {
     public:
-        explicit ScopeTimer(string name)
+        explicit ScopeTimer(string name, LogLevel log_level = LogLevel::INFO)
             : m_name(std::move(name)), // store name
-              m_start(PerfClock::now()) // store start time
+              m_start(PerfClock::now()), // store start time
+                log_level_(log_level)
         {
         }
 
@@ -60,11 +51,13 @@ namespace albc::diagnostics
         {
             // print name and duration
             double sec = FloatingSeconds(PerfClock::now() - m_start).count();
-            std::cout << m_name << ": Done in " << sec << "s" << std::endl;
+            //std::cout << m_name << ": Done in " << sec << "s" << std::endl;
+            LazySingleton<ThreadedConsoleLogger>::instance()->Log(log_level_, m_name.append(": Done in ").append(std::to_string(sec)).append("s"));
         }
 
     private:
-        const string m_name;
+        string m_name;
         const PerfClock::time_point m_start;
+        const LogLevel log_level_;
     };
 }

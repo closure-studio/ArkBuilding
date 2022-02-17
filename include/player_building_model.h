@@ -66,7 +66,8 @@ namespace albc::bm
         CHIP_6 = 10,
         CHIP_7 = 11,
         CHIP_8 = 12,
-        ORIGINIUM_SHARD = 13,
+        ORIGINIUM_SHARD_ORIROCK = 13,
+        ORIGINIUM_SHARD_DEVICE = 14,
     };
 
 	struct PlayerBuildingManufacture
@@ -101,6 +102,12 @@ namespace albc::bm
 		double speed;
 		int limit;
 	};
+
+    struct PlayerBuildingTradingOrder
+    {
+        explicit PlayerBuildingTradingOrder(const Json::Value &json)
+        { }
+    };
 	
 	struct PlayerBuildingTrading
 	{
@@ -110,6 +117,7 @@ namespace albc::bm
 		PlayerRoomState state;
 		OrderType order_type = OrderType::UNDEFINED;
 		int stock_limit;
+        Vector<PlayerBuildingTradingOrder> stock;
 		BuildingBuffDisplay display;
 	};
 

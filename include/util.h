@@ -5,6 +5,9 @@
 #include <iostream>
 #include <memory>
 #include <sstream>
+#include <chrono>
+#include <cstdarg>
+#include <cstring>
 
 // get filename, without path
 #ifndef __FILENAME__
@@ -192,12 +195,18 @@ namespace albc::util
         return n && (!(n & (n - 1)));
     }
 
-    template <typename TU> static constexpr int ctz(TU x)
+    static constexpr int ctz(UInt32 x)
     {
 #ifdef __GNUC__
         return __builtin_ctz(x);
 #else
-        return __lzcnt(x);
+       if (x == 0) return(32);
+       int n = 1;
+       if ((x & 0x0000FFFF) == 0) {n = n +16; x = x >>16;}
+       if ((x & 0x000000FF) == 0) {n = n + 8; x = x >> 8;}
+       if ((x & 0x0000000F) == 0) {n = n + 4; x = x >> 4;}
+       if ((x & 0x00000003) == 0) {n = n + 2; x = x >> 2;}
+       return n - (x & 1);
 #endif
     }
 
@@ -212,6 +221,35 @@ namespace albc::util
     {
         const auto val_or_null = magic_enum::enum_cast<TEnum>(str);
         return val_or_null.has_value() ? val_or_null.value() : default_value;
+    }
+
+
+    // get ops_for_partial_comb time_t in MM-DD HH:MM:SS
+    // uses chrono
+    static string GetReadableTime()
+    {
+        auto now = std::chrono::system_clock::now();
+        auto in_time_t = std::chrono::system_clock::to_time_t(now);
+        auto tm = *std::localtime(&in_time_t);
+        char buffer[64];
+        std::strftime(buffer, sizeof(buffer), "%m-%d.%H:%M:%S", &tm);
+        return string{buffer};
+    }
+
+    static int append_snprintf(char *&buffer, size_t &buffer_size, const char *fmt, ...)
+    {
+        va_list args;
+        va_start(args, fmt);
+        int ret = vsnprintf(buffer, buffer_size, fmt, args);
+        va_end(args);
+        if (ret < 0)
+        {
+            std::cerr << "vsnprintf failed: " << strerror(errno) << " when trying to write: " << fmt << std::endl;
+            return ret;
+        }
+        buffer += ret;
+        buffer_size -= ret;
+        return ret;
     }
 } // namespace util
 

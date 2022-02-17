@@ -136,7 +136,7 @@ struct __attribute__((aligned(64))) RoomAttributeFields
     OrderType order_type = OrderType::UNDEFINED;
     // time_t time_span = 0;
     double base_prod_eff = 1;  //基础生产效率
-    int base_prop_cap = 10;    //基础产品容量
+    int base_prod_cap = 10;    //基础产品容量
     double base_char_cost = 1; //基础心情消耗
     int prod_cnt = 0;          // 当前库存产品容量
 };
@@ -373,7 +373,7 @@ R"(        - Prod    :%s
         - ProdCnt :%d
 )", 
             ::to_string(room_attributes.prod_type).data(), ::to_string(room_attributes.order_type).data(),
-            room_attributes.base_prod_eff * 100, room_attributes.base_prop_cap, room_attributes.base_char_cost * 100, room_attributes.prod_cnt);
+            room_attributes.base_prod_eff * 100, room_attributes.base_prod_cap, room_attributes.base_char_cost * 100, room_attributes.prod_cnt);
         str.append(room_attr);
 
         return str;

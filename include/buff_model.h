@@ -68,7 +68,7 @@ class RoomBuff
     string name;
     string description;
     RoomBuffType inner_type{RoomBuffType::UNDEFINED}; //内部类型
-    Vector<RoomBuffTargetValidator *> validators;     //作用范围验证器
+    PtrVector<RoomBuffTargetValidator, std::shared_ptr> validators;     //作用范围验证器
     bm::RoomType room_type{bm::RoomType::NONE};       //作用房间类型
     int sort_id = 0;                                  //排序id
     double duration = 86400;                          //持续时间，由干员的心情决定
@@ -98,7 +98,7 @@ class RoomBuff
     virtual bool ValidateTarget(const RoomModel *room)
     {
         return std::all_of(validators.begin(), validators.end(),
-                           [room](RoomBuffTargetValidator *validator) -> bool { return validator->validate(room); });
+            [room](std::shared_ptr<RoomBuffTargetValidator> validator) -> bool { return validator->validate(room); });
     }
 
     virtual void UpdateScope(const ModifierScopeData &data)
@@ -111,12 +111,14 @@ class RoomBuff
 
     virtual RoomBuff *AddValidator(RoomBuffTargetValidator *validator)
     {
-        validators.push_back(validator);
+        validators.emplace_back(validator);
         return this;
     }
 
     void UpdateScopeOnNeed(const ModifierScopeData &data)
     {
+        assert(this->inner_type != RoomBuffType::UNDEFINED && "buff类型未定义!");
+        assert(this != prototype && "prototype should not be updated!");
         if (NeedUpdateScope(data))
         {
             UpdateScope(data);
@@ -434,7 +436,7 @@ class JayeTradeBuff : public CloneableRoomBuff<JayeTradeBuff>
 
     void UpdateScope(const ModifierScopeData &data) override
     {
-        int total_cap = data.room->room_attributes.base_prop_cap;
+        int total_cap = data.room->room_attributes.base_prod_cap;
         double eff_delta = 0.;
 
         UNROLL_LOOP(kRoomMaxBuffSlots)
@@ -460,7 +462,7 @@ class JayeTradeBuff : public CloneableRoomBuff<JayeTradeBuff>
         RoomAttributeModifier::init(applier.room_mod, this,
                                     inner_type,
                                     0.04 * std::max(total_cap - data.room->room_attributes.prod_cnt, 0), // eff
-                                    total_cap - data.room->room_attributes.base_prop_cap); // cap
+                                    total_cap - data.room->room_attributes.base_prod_cap); // cap
     }
 
   private:

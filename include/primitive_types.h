@@ -11,6 +11,8 @@
 #include <vector>
 #include <bitset>
 
+#include "albc_config.h"
+
 namespace albc::primitive_types
 {
 

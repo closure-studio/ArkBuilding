@@ -1,12 +1,30 @@
+#if defined(NDEBUG) && defined(__clang__)
+#pragma clang optimize off
+#endif // DEBUG
+
+#ifdef _WIN32
+#define _CRTDBG_MAP_ALLOC
+#include <crtdbg.h>
+#include <stdlib.h>
+#endif
+
 #include <chrono>
 #include "worker.h"
 
 #define PROGRAMOPTIONS_NO_COLORS
-#include "ProgramOptions.hxx"
+#include "ProgramOptions/ProgramOptions.hxx"
 
 int main(const int argc, char* argv[])
-{
-	//print build info
+{    
+    // Enable buffering to prevent VS from chopping up UTF-8 byte sequences
+    setvbuf(stdout, nullptr, _IOFBF, 1000);
+
+#ifdef _WIN32
+    _CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
+    _CrtSetReportMode(_CRT_WARN, _CRTDBG_MODE_DEBUG);
+#endif
+    
+    //print build info
     std::cout << "Build: " << __DATE__ << " " << __TIME__
               << ", Debug: " << is_debug_build()
               << ", System: " << system_name()
@@ -32,6 +50,10 @@ int main(const int argc, char* argv[])
         .abbreviation('d')
         .description("enable debug mode");
 
+    auto &all_ops = parser["all-ops"]
+        .abbreviation('a')
+        .description("show all operators info");
+
     // add help to parser
     auto& help = parser["help"]
         .abbreviation('h')
@@ -43,10 +65,13 @@ int main(const int argc, char* argv[])
     auto& parallel_test = parser["parallel-test"]
         .description("run parallel test");
 
+    auto& seq_test = parser["seq-test"]
+        .description("run sequential test");
+
     // parse command line
     if (!parser.parse(argc, argv))
     {
-        LOG_E << "Error: Unable to parse commandline args!" << std::endl;
+        std::cerr << "Error: Unable to parse commandline args!" << std::endl;
         return -1;
     }
 
@@ -61,20 +86,25 @@ int main(const int argc, char* argv[])
         logLevel = albc::diagnostics::LogLevel::DEBUG;
     }
 
+    if (all_ops.was_set())
+    {
+        albc::worker::show_all_ops = true;
+    }
+
     GlobalLogConfig::SetLogLevel(logLevel);
 
     // check if all required options are set
     if (player_data.empty() || game_data.empty())
     {
-        LOG_E << "Error: Missing required options!" << std::endl;
+        std::cerr << "Error: Missing required options!" << std::endl;
         // print missing options name
         if (player_data.empty())
         {
-            LOG_E << "must specify the path to player data file!" << std::endl;
+            std::cerr << "must specify the path to player data file!" << std::endl;
         }
         if (game_data.empty())
         {
-            LOG_E << "must specify the path to building data file!" << std::endl;
+            std::cerr << "must specify the path to building data file!" << std::endl;
         }
 
         std::cout << parser << std::endl;
@@ -82,29 +112,46 @@ int main(const int argc, char* argv[])
     }
 	try
 	{
-		// profile the elapsed time_t
-        auto start = std::chrono::high_resolution_clock::now();
+        cout << "Main process started." << std::endl;
 
-        LOG_I << "Main process started." << std::endl;
-        const auto& elapsed = parallel_test.was_set()
-            ? MeasureTime(albc::worker::run_parallel_test, player_data, game_data, logLevel, 100)
-            : MeasureTime(albc::worker::run_test, player_data, game_data, logLevel);
-        LOG_I << "Main process successfully completed in " << elapsed.count() << "s." << std::endl;
+        double elapsed;
+        if (go_test.was_set())
+        {
+            //albc::worker::run_go_test();
+            elapsed = 0;
+        }
+        else if (parallel_test.was_set())
+        {
+            elapsed = MeasureTime(albc::worker::run_parallel_test, player_data, game_data, logLevel, 64).count();
+        }
+        else if (seq_test.was_set())
+        {
+            elapsed = MeasureTime(albc::worker::run_sequential_test, player_data, game_data, logLevel, 64).count();
+        }
+        else
+        {
+            elapsed = MeasureTime(albc::worker::run_test, player_data, game_data, logLevel).count();
+        }
 
+        cout << "Main process successfully completed in " << elapsed << "s." << std::endl;
+
+#ifdef _WIN32
+        _CrtDumpMemoryLeaks();
+#endif
 		return 0;
 	}
     catch (const std::exception& e)
     {
-        LOG_E << "Exception: " << e.what() << std::endl;
+        std::cerr << "Exception: " << e.what() << std::endl;
         return -1;
     } /* and catch c str as well */ catch (const char* e) {
-        LOG_E << "Exception: " << e << std::endl;
+        std::cerr << "Exception: " << e << std::endl;
         return -1;
     } /* and catch c++ string as well */ catch (const std::string& e) {
-        LOG_E << "Exception: " << e << std::endl;
+        std::cerr << "Exception: " << e << std::endl;
         return -1;
-    } /* catch other exceptions */ catch (...) {
-        LOG_E << "Exception: Unknown exception." << std::endl;
+    } /* std::cerr other exceptions */ catch (...) {
+        std::cerr << "Exception: Unknown exception." << std::endl;
         return -1;
     }// end try
 }

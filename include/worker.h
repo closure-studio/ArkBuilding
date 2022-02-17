@@ -10,8 +10,12 @@
 
 namespace albc::worker
 {
+inline static bool show_all_ops = false;
+    
 void run_test(const string &player_data_path, const string &game_data_path, LogLevel logLevel);
 
 void run_parallel_test(const string &player_data_path, const string &game_data_path, LogLevel logLevel,
                        int parallel_cnt);
+
+void run_sequential_test(const string &player_data_path, const string &game_data_path, LogLevel logLevel, int sequential_cnt);
 } // namespace albc::worker

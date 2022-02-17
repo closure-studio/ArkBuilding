@@ -29,7 +29,9 @@ PlayerBuildingManufacture::PlayerBuildingManufacture(const Json::Value& json):
     process_point(json["processPoint"].asDouble()),
     last_update_time(json["lastUpdateTime"].asInt64()),
     complete_work_time(json["completeWorkTime"].asInt64())
-{ }
+{
+    assert(magic_enum::enum_contains<ManufactureFormulaId>(formula_id) && "Invalid formula id");
+}
 
 TradingOrderBuff::TradingOrderBuff(const Json::Value& json):
     from(json["from"].asString()),
@@ -41,11 +43,12 @@ TradingBuff::TradingBuff(const Json::Value& json):
     limit(json["limit"].asInt())
 { }
 
-PlayerBuildingTrading::PlayerBuildingTrading(const Json::Value& json):
-    buff(json["buff"]),
-    state(json_val_as_enum<PlayerRoomState>(json["state"])),
-    stock_limit(json["stockLimit"].asInt()),
-    display(json["display"])
+PlayerBuildingTrading::PlayerBuildingTrading(const Json::Value& json)
+    : buff(json["buff"]),
+      state(json_val_as_enum<PlayerRoomState>(json["state"])),
+      stock_limit(json["stockLimit"].asInt()),
+      stock(json_val_as_vector<PlayerBuildingTradingOrder>(json["stock"])),
+      display(json["display"])
 {
     const auto o_type = json["strategy"].asString();
     if (o_type == "O_GOLD")

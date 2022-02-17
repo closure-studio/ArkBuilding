@@ -1,5 +1,6 @@
 #pragma once
 #include <new>
+#include <algorithm>
 
 namespace albc::mem
 {
@@ -9,14 +10,14 @@ namespace albc::mem
 		return new(std::align_val_t{alignof(Ty)}) Ty(std::forward<TArg>(arg)...);
 	} // allocates aligned memory (alignment must be power of 2)
 
-    template <typename TKey, typename TValue, template<class> typename TPtr>
-    void free_ptr_map(std::map<TKey, TPtr<TValue>>& map)
+    template <typename TKey, typename TValue, template<class...> typename TPtr>
+    constexpr void free_ptr_map(std::map<TKey, TPtr<TValue>>& map)
     {
         map.clear();
     }
 
     template <typename TKey, typename TValue>
-    void free_ptr_map(std::map<TKey, TValue*>& map)
+    constexpr void free_ptr_map(std::map<TKey, TValue*>& map)
     {
         for (auto& pair : map)
         {
@@ -25,14 +26,14 @@ namespace albc::mem
         map.clear();
     }
 
-    template <typename TValue, template<class> typename TPtr>
-    void free_ptr_vector(std::vector<TPtr<TValue>>& vector)
+    template <typename TValue, template<class...> typename TPtr>
+    constexpr void free_ptr_vector(std::vector<TPtr<TValue>> &vector)
     {
         vector.clear();
     }
 
     template <typename TValue>
-    void free_ptr_vector(std::vector<TValue*>& vector)
+    constexpr void free_ptr_vector(std::vector<TValue*>& vector)
     {
         for (auto& value : vector)
         {
@@ -41,11 +42,21 @@ namespace albc::mem
         vector.clear();
     }
 
-    template <typename TKey, typename TValue, template<class> typename TPtr = std::unique_ptr>
+    template <typename TKey, typename TValue, template<class...> typename TPtr = std::unique_ptr>
     using PtrDictionary = Dictionary<TKey, TPtr<TValue>>;
 
-    template <typename TValue, template<class> typename TPtr = std::unique_ptr>
+    template <typename TValue, template<class...> typename TPtr = std::unique_ptr>
     using PtrVector = Vector<TPtr<TValue>>;
+
+    template <typename TValue, template<class...> typename TPtr>
+    static Vector<TValue *> get_raw_ptr_vector(const PtrVector<TValue, TPtr>& vector)
+    {
+        Vector<TValue *> raw_vector;
+        raw_vector.reserve(vector.size());
+        std::transform(vector.begin(), vector.end(), std::back_inserter(raw_vector),
+                       [](const TPtr<TValue>& ptr) { return ptr.get(); });
+        return raw_vector;
+    }
 }
 
 using namespace albc::mem;

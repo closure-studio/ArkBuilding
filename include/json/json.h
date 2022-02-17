@@ -1931,7 +1931,7 @@ class Value;
  *  void writeToStdout(StreamWriter::Factory const& factory, Value const& value)
  * { std::unique_ptr<StreamWriter> const writer( factory.newStreamWriter());
  *    writer->write(value, &std::cout);
- *    std::cout << std::endl;  // add lf and flush
+ *    std::cout << std::endl;  // add lf and Flush
  *  }
  *  \endcode
  */
@@ -1980,7 +1980,7 @@ String JSON_API writeString(StreamWriter::Factory const& factory,
 *   std::unique_ptr<Json::StreamWriter> writer(
 *      builder.newStreamWriter());
 *   writer->write(value, &std::cout);
-*   std::cout << std::endl;  // add lf and flush
+*   std::cout << std::endl;  // add lf and Flush
 *   \endcode
 */
 class JSON_API StreamWriterBuilder : public StreamWriter::Factory {
