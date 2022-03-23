@@ -8,6 +8,7 @@
 #include <chrono>
 #include <cstdarg>
 #include <cstring>
+#include <thread>
 
 // get filename, without path
 #ifndef __FILENAME__
@@ -18,29 +19,28 @@
 #define STRINGIFY(x) STRINGIFY2(x)
 #define STRINGIFY2(x) #x
 
-#define MAGIC_ENUM_RANGE_MIN 0
-#define MAGIC_ENUM_RANGE_MAX 256
-#include "magic_enum.hpp"
-
-#ifndef MAGIC_ENUM_SUPPORTED
-// raise error that contains info about ops_for_partial_comb compiler
-static_assert(false, STRINGIFY(magic_enum is not supported by compiler.gcc\
-                               : __GNUC__.__GNUC_MINOR__.__GNUC_PATCHLEVEL__.clang\
-                               : __clang_major__.__clang_minor__.__clang_patchlevel__.msvc\
-                               : _MSC_VER.));
-#endif
-
 // this marco unrolls the loop for the given number of times, using compiler-specific unrolling
 // place this macro before the loop you want to unroll
-
 #ifdef __GNUC__ // in gcc, the marco is "#pragma GCC unroll(n)"
 #define UNROLL_LOOP(n) _Pragma(STRINGIFY(GCC unroll(n)))
 
 #elif defined(__clang__) // in clang, the marco is "#pragma clang loop unroll_count(n)"
 #define UNROLL_LOOP(n) _Pragma(STRINGIFY(clang loop unroll_count(n)))
 
+#elif defined(ALBC_CONFIG_MSVC)
+#define UNROLL_LOOP(n) _Pragma(STRINGIFY(loop(n)))
+
 #else // if no compiler-specific unrolling is available, the marco is empty
 #define UNROLL_LOOP(n)
+#endif
+
+// unreachable
+#if defined(__GNUC__) || defined(__clang__)
+#define UNREACHABLE() __builtin_unreachable()
+#elif defined(_MSC_VER)
+#define UNREACHABLE() __assume(0)
+#else
+#define UNREACHABLE() while (true) { std::cerr << "unreachable:" << __FILENAME__ << ":" << __LINE__ << std::endl; std::this_thread::sleep_for(std::chrono::seconds(1)); }
 #endif
 
 namespace albc::util
@@ -123,19 +123,6 @@ namespace albc::util
 #endif
     }
 
-    constexpr const char *file_name(const char *path)
-    {
-        const char *file = path;
-        while (*path)
-        {
-            if (*path++ == '/' || *path == '\\')
-            {
-                file = path;
-            }
-        }
-        return file;
-    } // this function can be evaluated at compile time
-
     // convert an enum value to a string, using magic enum
     // use std::enable_if and std::is_enum_v<T> to check if T is an enum
     template <typename T>
@@ -197,16 +184,22 @@ namespace albc::util
 
     static constexpr int ctz(UInt32 x)
     {
-#ifdef __GNUC__
+#if defined(__GNUC__) || defined(__clang__)
         return __builtin_ctz(x);
+#elif defined(_MSC_VER)
+        unsigned long r;
+        _BitScanForward(&r, x);
+        return r;
+#elif defined(ffs)
+        return ffs(x) - 1;
 #else
-       if (x == 0) return(32);
-       int n = 1;
-       if ((x & 0x0000FFFF) == 0) {n = n +16; x = x >>16;}
-       if ((x & 0x000000FF) == 0) {n = n + 8; x = x >> 8;}
-       if ((x & 0x0000000F) == 0) {n = n + 4; x = x >> 4;}
-       if ((x & 0x00000003) == 0) {n = n + 2; x = x >> 2;}
-       return n - (x & 1);
+        if (x == 0) return(32);
+        int n = 1;
+        if ((x & 0x0000FFFF) == 0) {n = n +16; x = x >>16;}
+        if ((x & 0x000000FF) == 0) {n = n + 8; x = x >> 8;}
+        if ((x & 0x0000000F) == 0) {n = n + 4; x = x >> 4;}
+        if ((x & 0x00000003) == 0) {n = n + 2; x = x >> 2;}
+        return n - (x & 1);
 #endif
     }
 
@@ -240,16 +233,23 @@ namespace albc::util
     {
         va_list args;
         va_start(args, fmt);
-        int ret = vsnprintf(buffer, buffer_size, fmt, args);
+        int ret = std::vsnprintf(buffer, buffer_size, fmt, args);
         va_end(args);
         if (ret < 0)
         {
-            std::cerr << "vsnprintf failed: " << strerror(errno) << " when trying to write: " << fmt << std::endl;
+            std::cerr << "vsnprintf failed: " << std::strerror(errno) << " when trying to write: " << fmt << std::endl;
             return ret;
         }
         buffer += ret;
         buffer_size -= ret;
         return ret;
+    }
+
+    static string get_current_thread_id()
+    {
+        char buf[20];
+        std::sprintf(buf, "%08lX", std::hash<std::thread::id>{}(std::this_thread::get_id()));
+        return string{buf};
     }
 } // namespace util
 

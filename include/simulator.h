@@ -60,8 +60,7 @@ class Simulator
 
             case CharCostModifierType::ROOM_CLEAR_ALL:
             default:
-                assert(false); // should not reach here
-                break;
+                UNREACHABLE();
             }
         }
 
@@ -138,8 +137,7 @@ class Simulator
 
             case RoomFinalAttributeModifierType::NONE:
             default:
-                assert(false);
-                break;
+                UNREACHABLE();
             }
         }
 

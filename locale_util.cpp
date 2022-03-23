@@ -2,20 +2,25 @@
 
 #ifdef _WIN32
 #include <Windows.h>
+#else
+#include <clocale>
 #endif
 
+#include <mutex>
+#include <iostream>
+
 // convert from UTF-8 to OS charset
-string albc::toOSCharset(const string &src)
+const string& albc::toOSCharset(const string &src)
 {
-#ifdef _WIN32
-    static bool has_set_cp = false;
-    if (!has_set_cp)
+    static std::once_flag init_locale_flag;
+    std::call_once(init_locale_flag, []() 
     {
-        // Set console code page to UTF-8 so console known how to interpret string data
+#ifdef _WIN32
         SetConsoleOutputCP(CP_UTF8);
-        has_set_cp = true;
-    }
+#else
+        setlocale(LC_ALL, "en_US.UTF-8");
 #endif
-    
+    });
+
     return src;
 }

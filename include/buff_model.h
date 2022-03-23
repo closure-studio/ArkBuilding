@@ -1,7 +1,7 @@
 #pragma once
-
+#pragma clang diagnostic push
+#pragma ide diagnostic ignored "OCUnusedGlobalDeclarationInspection"
 #include "attributes_util.h"
-#include "bit_ops.h"
 #include "buff_primitives.h"
 #include "building_data_model.h"
 #include "log_util.h"
@@ -98,7 +98,7 @@ class RoomBuff
     virtual bool ValidateTarget(const RoomModel *room)
     {
         return std::all_of(validators.begin(), validators.end(),
-            [room](std::shared_ptr<RoomBuffTargetValidator> validator) -> bool { return validator->validate(room); });
+            [room](const std::shared_ptr<RoomBuffTargetValidator>& validator) -> bool { return validator->validate(room); });
     }
 
     virtual void UpdateScope(const ModifierScopeData &data)
@@ -140,11 +140,8 @@ class RoomBuff
 
         case ModifierScopeType::DEPEND_ON_OTHER_CHAR:
             return true;
-
-        default: // should not reach here
-            assert(false);
-            return false;
         }
+        UNREACHABLE();
     }
 };
 
@@ -286,9 +283,6 @@ class IncEffByOtherCapInc : public CloneableRoomBuff<IncEffByOtherCapInc>
         for (UInt32 i = 0; i < data.room->n_buff; ++i)
         {
             const auto buff = data.room->buffs[i];
-            if (buff->owner_inst_id == this->owner_inst_id)
-                continue;
-
             const auto &applier = buff->applier;
             int cap_delta;
             if (!applier.room_mod.IsValid() || (cap_delta = applier.room_mod.cap_delta) <= 0)
@@ -609,4 +603,81 @@ class TexasTradeBuff : public CloneableRoomBuff<TexasTradeBuff>
     int angel_char_inst_id_ = -1;
     int lappland_char_inst_id_ = -1;
 };
+
+enum class TradeChanceType
+{
+    DISABLED = 0,
+    LEVEL_1 = 1,
+    LEVEL_2 = 2,
+};
+
+class TradeChanceBuff final : public CloneableRoomBuff<TradeChanceBuff>
+{
+public:
+    static constexpr double kOrigFourGoldChance = 0.2;
+    static constexpr double kLvl1FourGoldChance = 0.45;
+    static constexpr double kLvl2FourGoldChance = 0.7;
+
+    explicit TradeChanceBuff(TradeChanceType type)
+        : CloneableRoomBuff(bm::RoomType::TRADING, RoomBuffType::TRADING_INC_ORDER_CHANCE),
+        indirect_addition_(GetEquivalentEffInc(type))
+    {
+        this->applier.scope.type = ModifierScopeType::DEPEND_ON_OTHER_CHAR;
+    }
+
+    void UpdateScope(const ModifierScopeData &data) override
+    {
+        if (data.room->max_slot_count < 3)
+        {
+            RoomFinalAttributeModifier::mark_invalid(applier.final_mod);
+            return;
+        }
+
+        if (indirect_addition_ > data.room->dynamic_fields.trade_chance_indirect_eff_mul)
+        {
+            RoomFinalAttributeModifier::init(this->applier.final_mod,
+                this, RoomBuffType::TRADING_INC_ORDER_CHANCE,
+                indirect_addition_ - data.room->dynamic_fields.trade_chance_indirect_eff_mul,
+                0,
+                0,
+                INFINITY,
+                RoomFinalAttributeModifierType::INDIRECT);
+        }
+    }
+
+    static constexpr double GetEquivalentEffInc(TradeChanceType type)
+    {
+        switch (type)
+        {
+        case TradeChanceType::DISABLED:
+            return kOrigFourGoldChance;
+
+        case TradeChanceType::LEVEL_1:
+            return kLvl1FourGoldChance;
+
+        case TradeChanceType::LEVEL_2:
+            return kLvl2FourGoldChance;
+        }
+        UNREACHABLE();
+    }
+
+    static constexpr double GetChanceOf4GoldOrder(TradeChanceType type)
+    {
+        switch (type)
+        {
+        case TradeChanceType::DISABLED:
+            return kOrigFourGoldChance;
+
+        case TradeChanceType::LEVEL_1:
+            return kLvl1FourGoldChance;
+
+        case TradeChanceType::LEVEL_2:
+            return kLvl2FourGoldChance;
+        }
+        UNREACHABLE();
+    }
+protected:
+    double indirect_addition_;
+};
 } // namespace albc
+#pragma clang diagnostic pop

@@ -1,5 +1,5 @@
 #if defined(NDEBUG) && defined(__clang__)
-#pragma clang optimize off
+#pragma clang optimize on
 #endif // DEBUG
 
 #ifdef _WIN32
@@ -10,6 +10,7 @@
 
 #include <chrono>
 #include "worker.h"
+#include <pthread.h>
 
 #define PROGRAMOPTIONS_NO_COLORS
 #include "ProgramOptions/ProgramOptions.hxx"
@@ -32,7 +33,8 @@ int main(const int argc, char* argv[])
     po::parser parser;
     std::string game_data;
     std::string player_data;
-    auto logLevel = albc::diagnostics::LogLevel::WARN;
+    std::string log_level_str;
+    auto log_level = albc::diagnostics::LogLevel::WARN;
 
     // add options to parser
     // add playerdata and gamedata to parser
@@ -40,15 +42,16 @@ int main(const int argc, char* argv[])
         .abbreviation('p')
         .description("path to player data file")
         .bind(player_data);
+
     parser["gamedata"]
         .abbreviation('g')
         .description("path to arknights building data file")
         .bind(game_data);
 
-    // add debug options to parser
-    auto& debug = parser["debug"]
-        .abbreviation('d')
-        .description("enable debug mode");
+    parser["log-level"]
+        .abbreviation('l')
+        .description("log level")
+        .bind(log_level_str);
 
     auto &all_ops = parser["all-ops"]
         .abbreviation('a')
@@ -81,17 +84,15 @@ int main(const int argc, char* argv[])
         return 0;
     }
 
-    if (debug.was_set())
-    {
-        logLevel = albc::diagnostics::LogLevel::DEBUG;
-    }
+    log_level = albc::util::parse_enum_string(log_level_str, albc::diagnostics::LogLevel::WARN);
+    cout << "Log level: " << magic_enum::enum_name(log_level) << endl;
 
     if (all_ops.was_set())
     {
         albc::worker::show_all_ops = true;
     }
 
-    GlobalLogConfig::SetLogLevel(logLevel);
+    GlobalLogConfig::SetLogLevel(log_level);
 
     // check if all required options are set
     if (player_data.empty() || game_data.empty())
@@ -122,15 +123,15 @@ int main(const int argc, char* argv[])
         }
         else if (parallel_test.was_set())
         {
-            elapsed = MeasureTime(albc::worker::run_parallel_test, player_data, game_data, logLevel, 64).count();
+            elapsed = MeasureTime(albc::worker::run_parallel_test, player_data, game_data, log_level, 20).count();
         }
         else if (seq_test.was_set())
         {
-            elapsed = MeasureTime(albc::worker::run_sequential_test, player_data, game_data, logLevel, 64).count();
+            elapsed = MeasureTime(albc::worker::run_sequential_test, player_data, game_data, log_level, 1024).count();
         }
         else
         {
-            elapsed = MeasureTime(albc::worker::run_test, player_data, game_data, logLevel).count();
+            elapsed = MeasureTime(albc::worker::run_test, player_data, game_data, log_level).count();
         }
 
         cout << "Main process successfully completed in " << elapsed << "s." << std::endl;
@@ -138,6 +139,7 @@ int main(const int argc, char* argv[])
 #ifdef _WIN32
         _CrtDumpMemoryLeaks();
 #endif
+        std::this_thread::sleep_for(std::chrono::seconds(1)); // wait for console output to flush
 		return 0;
 	}
     catch (const std::exception& e)

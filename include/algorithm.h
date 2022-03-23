@@ -2,31 +2,33 @@
 
 #include "buff_model.h"
 #include "operator_model.h"
+#include "operator_pattern.h"
 #include <bitset>
 
 namespace albc::algorithm
 {
 static constexpr size_t kAlgOperatorSize = 512;
+static constexpr size_t kRoomMaxOperators = 5;
 
 class SolutionData
 {
   public:
-    SolutionData()
-        : operators(kRoomMaxBuffSlots), snapshot(kRoomMaxBuffSlots)
-    { }
+    SolutionData() : operators(kRoomMaxOperators), snapshot(kRoomMaxOperators)
+    {
+    }
 
     Vector<OperatorModel *> operators;
     Vector<Vector<ModifierApplier>> snapshot;
     double productivity = -1;
-    UInt32 calc_cnt = 0;
 
     void Reset()
     {
         operators.clear();
         snapshot.clear();
         productivity = -1;
-        calc_cnt = 0;
     }
+
+    string ToString(double max_allowed_duration = 3600 * 16) const;
 };
 
 /**
@@ -39,12 +41,18 @@ class Algorithm
   public:
     virtual ~Algorithm() = default;
 
+    Algorithm(const Vector<RoomModel*> &rooms, const PtrVector<OperatorModel> &operators,
+              double max_allowed_duration = 3600 * 16)
+        : rooms_(rooms), all_ops_(get_raw_ptr_vector(operators)),
+          max_allowed_duration_(max_allowed_duration)
+    {
+    }
+    
     Algorithm(const PtrVector<RoomModel> &rooms, const PtrVector<OperatorModel> &operators,
               double max_allowed_duration = 3600 * 16)
-        : rooms_(get_raw_ptr_vector(rooms)),
-          all_ops_(get_raw_ptr_vector(operators)),
-          max_allowed_duration_(max_allowed_duration)
-    { }
+        : Algorithm(get_raw_ptr_vector(rooms), operators, max_allowed_duration)
+    {
+    }
 
     virtual void Run() = 0; // 实现算法
 
@@ -53,15 +61,10 @@ class Algorithm
     Vector<OperatorModel *> all_ops_;
     Vector<OperatorModel *> inbound_ops_;
     double max_allowed_duration_;
-    SolutionData current_solution_;
 
     void FilterOperators(const RoomModel *room);
 
     [[nodiscard]] string GetSolutionInfo(const RoomModel &room, const SolutionData &solution) const;
-    void UpdateSolution(double max_delta, UInt32 calc_cnt, Vector<OperatorModel *> solution,
-                        Vector<Vector<ModifierApplier>> snapshot);
-
-    void ResetSolution();
 };
 
 class HardMutexResolver
@@ -73,12 +76,80 @@ class HardMutexResolver
     Vector<OperatorModel *> non_mutex_ops;
 
     HardMutexResolver(const Vector<OperatorModel *> &ops, bm::RoomType room_type);
-    bool MoveNext();
-    bool HasMutexBuff();
+    [[nodiscard]] bool MoveNext();
+    [[nodiscard]] bool HasMutexBuff() const;
+    [[nodiscard]] UInt32 MutexCombCnt() const;
+    [[nodiscard]] UInt32 MutexGroupCnt() const;
 
   protected:
     Vector<Vector<OperatorModel *>> mutex_groups_;
     Vector<UInt32> group_pos_;
+};
+
+struct GreedySolutionHolder
+{
+    SolutionData max_solution;
+    UInt32 calc_cnt = 0;
+
+    void Reserve(size_t size)
+    {
+        max_solution.operators.reserve(1);
+        max_solution.snapshot.reserve(1);
+    }
+
+    void OnSolutionFound(const Vector<OperatorModel *> &solution, double productivity)
+    {
+        if (productivity > this->max_solution.productivity)
+        {
+            this->max_solution.productivity = productivity;
+
+            this->max_solution.operators.assign(solution.begin(), solution.end());
+            std::transform(solution.begin(), solution.end(), this->max_solution.snapshot.begin(),
+                           [](const OperatorModel *o) {
+                               Vector<ModifierApplier> mods(o->buffs.size());
+                               std::transform(o->buffs.begin(), o->buffs.end(), mods.begin(),
+                                              [](const RoomBuff *b) { return b->applier; });
+
+                               return std::move(mods);
+                           });
+        }
+    }
+
+    void UpdateCalcCnt(UInt32 cnt)
+    {
+        this->calc_cnt = cnt;
+    }
+};
+
+struct AllSolutionHolder
+{
+    Vector<SolutionData> solutions;
+    UInt32 calc_cnt = 0;
+
+    void Reserve(size_t size)
+    {
+        solutions.reserve(size);
+    }
+
+    void OnSolutionFound(const Vector<OperatorModel *> &solution, double productivity)
+    {
+        assert(solutions.size() < solutions.capacity());
+        auto &sol = solutions.emplace_back();
+        sol.productivity = productivity;
+        sol.operators.assign(solution.begin(), solution.end());
+        std::transform(solution.begin(), solution.end(), sol.snapshot.begin(), [](const OperatorModel *o) {
+            Vector<ModifierApplier> mods(o->buffs.size());
+            std::transform(o->buffs.begin(), o->buffs.end(), mods.begin(),
+                           [](const RoomBuff *b) { return b->applier; });
+            
+            return std::move(mods);
+        });
+    }
+
+    void UpdateCalcCnt(UInt32 cnt)
+    {
+        this->calc_cnt = cnt;
+    }
 };
 
 class CombMaker : public Algorithm
@@ -86,9 +157,9 @@ class CombMaker : public Algorithm
   protected:
     using Algorithm::Algorithm;
 
-    std::tuple<double, UInt32, Vector<OperatorModel *>, Vector<Vector<ModifierApplier>>> MakePartialComb(
-        const Vector<OperatorModel *> &operators, UInt32 max_n, RoomModel *room,
-        const std::bitset<kAlgOperatorSize> &enabled_root_ops) const;
+    template <typename TSolutionHolder>
+    void MakePartialComb(const Vector<OperatorModel *> &operators, UInt32 max_n, RoomModel *room,
+                         const std::bitset<kAlgOperatorSize> &enabled_root_ops, TSolutionHolder &solution_holder) const;
 };
 
 class BruteForce : public CombMaker // 暴力枚举，计算出所有可能的组合
@@ -99,9 +170,9 @@ class BruteForce : public CombMaker // 暴力枚举，计算出所有可能的�
     void Run() override;
 
   protected:
-    void MakeComb(const Vector<OperatorModel *> &operators, UInt32 max_n, RoomModel *room);
-    void MakePartialCombAndUpdateSolution(const Vector<OperatorModel *> &operators, UInt32 max_n, RoomModel *room,
-                                          const std::bitset<kAlgOperatorSize> &enabled_root_ops);
+    template <typename TSolutionHolder>
+    void MakeComb(const Vector<OperatorModel *> &operators, UInt32 max_n, RoomModel *room,
+                  TSolutionHolder &solution_holder);
 };
 
 class MultiRoomGreedy : public BruteForce
@@ -113,13 +184,28 @@ class MultiRoomGreedy : public BruteForce
     // 默认房间优先级为：干员容量大的房间优先，因为这样更有可能排列出生产效率高的Buff组合
     // TODO: 房间优先级的其他设置
   public:
-    MultiRoomGreedy(const PtrVector<RoomModel> &rooms, const PtrVector<OperatorModel> &operators,
-                    double max_allowed_duration = 3600 * 16);
+    using BruteForce::BruteForce;
 
     void Run() override;
 
   protected:
-    Dictionary<string, SolutionData> room_solution_map_; //map[room_id] = SolutionData
+    Dictionary<string, SolutionData> room_solution_map_; // map[room_id] = SolutionData
+};
+
+class PatternMatching
+{
+  public:
+};
+
+class MultiRoomIntegerProgramming : public BruteForce
+{
+  public:
+    using BruteForce::BruteForce;
+
+    void Run() override;
+
+  protected:
+    Dictionary<string, SolutionData> room_solution_map_; // map[room_id] = SolutionData
 };
 } // namespace albc::algorithm
 

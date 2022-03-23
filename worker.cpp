@@ -10,78 +10,83 @@ namespace albc::worker
 {
 void run_test(const string &player_data_path, const string &game_data_path, LogLevel logLevel)
 {
-    LOG_I << "Initializing internal buff models" << std::endl;
-    LOG_I << "Loaded " << BuffMap::instance()->size() << " internal building buff models" << std::endl;
-
     std::shared_ptr<bm::BuildingData> building_data;
     std::shared_ptr<PlayerDataModel> player_data;
 
-    LOG_I << "Parsing game building data file: " << game_data_path << std::endl;
-    try
     {
-        const Json::Value &building_data_json = read_json_from_file(game_data_path);
-        building_data = std::make_shared<bm::BuildingData>(building_data_json);
-        LOG_I << "Loaded " << building_data->chars.size() << " building character definitions." << std::endl;
-        LOG_I << "Loaded " << building_data->buffs.size() << " building buff definitions." << std::endl;
-    }
-    catch (const std::exception &e)
-    {
-        LOG_E << "Error: Unable to parse game building data file: " << e.what() << std::endl;
-        throw;
-    }
-
-    int unsupported_buff_cnt = 0;
-    for (const auto &[buff_id, buff] : building_data->buffs)
-    {
-        if (BuffMap::instance()->count(buff_id) <= 0)
+        auto sc = SCOPE_TIMER_WITH_TRACE("Data feeding");
+        LOG_I << "Parsing game building data file: " << game_data_path << std::endl;
+        try
         {
-            if (show_all_ops)
+            const Json::Value &building_data_json = read_json_from_file(game_data_path);
+            building_data = std::make_shared<bm::BuildingData>(building_data_json);
+            LOG_I << "Loaded " << building_data->chars.size() << " building character definitions." << std::endl;
+            LOG_I << "Loaded " << building_data->buffs.size() << " building buff definitions." << std::endl;
+        }
+        catch (const std::exception &e)
+        {
+            LOG_E << "Error: Unable to parse game building data file: " << e.what() << std::endl;
+            throw;
+        }
+
+        int unsupported_buff_cnt = 0;
+        for (const auto &[buff_id, buff] : building_data->buffs)
+        {
+            if (BuffMap::instance()->count(buff_id) <= 0)
             {
-                std::cout << "\"" << buff->buff_id << "\": " << toOSCharset(buff->buff_name) << ": "
-                          << toOSCharset(xml::strip_xml_tags(buff->description)) << std::endl;
+                if (show_all_ops)
+                {
+                    std::cout << "\"" << buff->buff_id << "\": " << toOSCharset(buff->buff_name) << ": "
+                              << toOSCharset(xml::strip_xml_tags(buff->description)) << std::endl;
+                }
+                ++unsupported_buff_cnt;
             }
-            ++unsupported_buff_cnt;
+        }
+        if (!show_all_ops)
+        {
+            LOG_D << unsupported_buff_cnt
+                  << R"( unsupported buff found in building data buff definitions. Add "--all-ops" param to check all.)"
+                  << std::endl;
+        }
+
+        LOG_I << "Parsing player data file: " << player_data_path << std::endl;
+        try
+        {
+            const Json::Value &player_data_json = read_json_from_file(player_data_path);
+            player_data = std::make_shared<PlayerDataModel>(player_data_json);
+            LOG_I << "Added " << player_data->troop.chars.size() << " existing character instance" << std::endl;
+            LOG_I << "Added " << player_data->building.player_building_room.manufacture.size() << " factories."
+                  << std::endl;
+            LOG_I << "Added " << player_data->building.player_building_room.trading.size() << " trading posts."
+                  << std::endl;
+            LOG_I << "Player building data parsing completed." << std::endl;
+        }
+        catch (std::exception &e)
+        {
+            LOG_E << "Error: Unable to parse player data file: " << e.what() << std::endl;
+            throw;
         }
     }
-    if (!show_all_ops)
-    {
-        LOG_D << unsupported_buff_cnt
-              << R"( unsupported buff found in building data buff definitions. Add "--all-ops" param to check all.)"
-              << std::endl;
-    }
 
-    LOG_I << "Parsing player data file: " << player_data_path << std::endl;
-    try
-    {
-        const Json::Value &player_data_json = read_json_from_file(player_data_path);
-        player_data = std::make_shared<PlayerDataModel>(player_data_json);
-        LOG_I << "Added " << player_data->troop.chars.size() << " existing character instance" << std::endl;
-        LOG_I << "Added " << player_data->building.player_building_room.manufacture.size() << " factories."
-              << std::endl;
-        LOG_I << "Added " << player_data->building.player_building_room.trading.size() << " trading posts."
-              << std::endl;
-        LOG_I << "Player building data parsing completed." << std::endl;
-    }
-    catch (std::exception &e)
-    {
-        LOG_E << "Error: Unable to parse player data file: " << e.what() << std::endl;
-        throw;
-    }
-
-    LOG_I << "Data feeding completed." << std::endl;
-
+    GenTestModePlayerData(*player_data, *building_data);
     WorkerParams params(*player_data, *building_data);
-    const auto& sc = SCOPE_TIMER_WITH_TRACE("Running greedy algorithm");
-    MultiRoomGreedy alg_manu(params.GetRoomsOfType(bm::RoomType::MANUFACTURE), params.GetOperators());
-    alg_manu.Run();
+    const auto sc = SCOPE_TIMER_WITH_TRACE("Running greedy algorithm");
+    Vector<RoomModel *> all_rooms;
+    const auto& manu_rooms = get_raw_ptr_vector(params.GetRoomsOfType(bm::RoomType::MANUFACTURE));
+    const auto& trade_tooms = get_raw_ptr_vector(params.GetRoomsOfType(bm::RoomType::TRADING));
+    all_rooms.insert(all_rooms.end(), manu_rooms.begin(), manu_rooms.end());
+    all_rooms.insert(all_rooms.end(), trade_tooms.begin(), trade_tooms.end());
 
-    MultiRoomGreedy alg_trade(params.GetRoomsOfType(bm::RoomType::TRADING), params.GetOperators());
-    alg_trade.Run();
+    MultiRoomIntegerProgramming alg_all(all_rooms, params.GetOperators());
+    alg_all.Run();
+
+    // MultiRoomGreedy alg_trade(params.GetRoomsOfType(bm::RoomType::TRADING), params.GetOperators());
+    // alg_trade.Run();
 }
 
 void run_parallel_test(const string &player_data_path, const string &game_data_path, LogLevel logLevel, int parallel_cnt)
 {
-    const auto& sc = SCOPE_TIMER_WITH_TRACE("Parallel test");
+    const auto sc = SCOPE_TIMER_WITH_TRACE("Parallel test");
 
 	LOG_I << "Running parallel test for " << parallel_cnt << " concurrency" << std::endl;
 	

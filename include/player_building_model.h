@@ -41,7 +41,8 @@ namespace albc::bm
 
 	struct PlayerBuildingChar
 	{
-		explicit PlayerBuildingChar(const Json::Value &json);
+		PlayerBuildingChar() = default;
+	    explicit PlayerBuildingChar(const Json::Value &json);
 
 		string char_id;
 		string room_slot_id;

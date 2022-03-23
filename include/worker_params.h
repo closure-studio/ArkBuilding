@@ -7,6 +7,7 @@
 #include "player_building_model.h"
 #include "player_data_model.h"
 #include <bitset>
+#include <unordered_set>
 
 namespace albc::worker
 {
@@ -110,6 +111,42 @@ static std::unique_ptr<RoomModel> RoomFactory(const string &id, const bm::Player
     return room;
 }
 
+static void GenTestModePlayerData(PlayerDataModel& player_data, const bm::BuildingData &building_data)
+{
+    LOG_W << "Worker is running under testing mode." << endl;
+    int inst_id_counter = player_data.troop.chars.size();
+    std::unordered_set<string> char_ids;
+    std::transform(player_data.troop.chars.begin(), player_data.troop.chars.end(), 
+        std::inserter(char_ids, char_ids.end()),
+        [] (const auto& pair) { return pair.second->char_id; });
+
+    for (const auto& [id, building_char] : building_data.chars)
+    {
+        if (!char_ids.count(id))
+        {
+            auto dummy_char = std::make_unique<PlayerCharacter>();
+            dummy_char->char_id = id;
+            dummy_char->inst_id = ++inst_id_counter;
+            player_data.troop.chars.insert( {id, std::move(dummy_char)} );
+
+            auto dummy_building_char = std::make_unique<bm::PlayerBuildingChar>();
+            dummy_building_char->char_id = id;
+            player_data.building.chars.insert({ id, std::move(dummy_building_char) });
+        }
+    }
+
+    for (auto& [id, player_char] : player_data.troop.chars)
+    {
+        player_char->evolve_phase = EvolvePhase::PHASE_2;
+        player_char->level = 90;
+    }
+
+    for (auto& [id, building_char] : player_data.building.chars)
+    {
+        building_char->ap = 86400;
+    }
+}
+
 class WorkerParams
 {
   public:
@@ -133,7 +170,7 @@ class WorkerParams
             }
 
             const auto op = new OperatorModel(*player_char, *player_data.building.chars.at(inst_id), building_data);
-            op->Empower(lookup, *player_char, building_data, false, true);
+            op->Empower(lookup, *player_char, building_data);
             operators_.emplace_back(op);
         }
 
@@ -160,10 +197,17 @@ class WorkerParams
         }
     }
 
+    void UpdateGlobalAttributes(const GlobalAttributeFields& global_attr) const
+    {
+        for (const auto& rooms : rooms_map_)
+            for (const auto& room : rooms)
+                room->global_attributes = global_attr;
+    }
+
     [[nodiscard]] const PtrVector<RoomModel>& GetRoomsOfType(bm::RoomType type) const
     {
         if (UInt32 type_val = static_cast<UInt32>(type), idx = ctz(type_val);
-            is_pow_of_two(type_val) && idx > 0 && idx < static_cast<int>(rooms_map_.size()))
+            is_pow_of_two(type_val) && idx > 0 && idx < static_cast<UInt32>(rooms_map_.size()))
         {
             return rooms_map_[idx];
         }

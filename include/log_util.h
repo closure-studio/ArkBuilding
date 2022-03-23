@@ -16,7 +16,7 @@
 
 #define ALBC_LOG_COMPILE_TIME_BUILD_TAG(name, id)                                                                      \
     ALBC_LOG_COMPILE_TIME_DEFINE_CONSTEXPR_STRING_VIEW(ALBC_LOG_UNIQUE(filename, id), __FILENAME__)                    \
-    ALBC_LOG_COMPILE_TIME_DEFINE_CONSTEXPR_STRING_VIEW(ALBC_LOG_UNIQUE(funcname, id), __PRETTY_FUNCTION__)             \
+    ALBC_LOG_COMPILE_TIME_DEFINE_CONSTEXPR_STRING_VIEW(ALBC_LOG_UNIQUE(funcname, id), __FUNCTION__)             \
     ALBC_LOG_COMPILE_TIME_DEFINE_CONSTEXPR_STRING_VIEW(ALBC_LOG_UNIQUE(line, id), STRINGIFY(__LINE__))                 \
     static constexpr std::string_view ALBC_LOG_UNIQUE(name, id) =                                                      \
         albc::util::join_v<ALBC_LOG_UNIQUE(filename, id), albc::diagnostics::kColonSep, ALBC_LOG_UNIQUE(funcname, id), \
@@ -35,10 +35,11 @@
     ALBC_LOG_UNIQUE(logr, id)
 
 #define GET_LOGGER_WITH_LEVEL(level) CREATE_LOGGER(__COUNTER__)(level)
+#define LOG_D S_LOG(GET_LOGGER_WITH_LEVEL(albc::diagnostics::LogLevel::DEBUG))
 #define LOG_I S_LOG(GET_LOGGER_WITH_LEVEL(albc::diagnostics::LogLevel::INFO))
 #define LOG_W S_LOG(GET_LOGGER_WITH_LEVEL(albc::diagnostics::LogLevel::WARN))
-#define LOG_D S_LOG(GET_LOGGER_WITH_LEVEL(albc::diagnostics::LogLevel::DEBUG))
 #define LOG_E S_LOG(GET_LOGGER_WITH_LEVEL(albc::diagnostics::LogLevel::ERROR))
+#define LOG(level) S_LOG(GET_LOGGER_WITH_LEVEL(level))
 
 namespace albc::diagnostics
 {
@@ -63,7 +64,7 @@ class GlobalLogConfig
 
     static void SetLogLevel(LogLevel level)
     {
-        std::lock_guard<std::mutex> lock(mutex_);
+        std::lock_guard lock(mutex_);
         log_level_ = level;
     }
 
@@ -80,7 +81,7 @@ class GlobalLogConfig
 class ThreadedConsoleLogger
 {
   public:
-    ThreadedConsoleLogger() : queue_(512), thread_([this]() { MainLoop(); })
+    ThreadedConsoleLogger() : thread_([this]() { MainLoop(); }), queue_(4096)
     {
     }
 
@@ -91,21 +92,35 @@ class ThreadedConsoleLogger
         thread_.join();
     }
 
-    void Log(LogLevel level, const string &str)
+    void Log(const LogLevel level, string &&str)
     {
         if (GlobalLogConfig::CanLog(level))
         {
-            if (!queue_.try_enqueue(str))
+#ifndef ALBC_CONFIG_ASAN // AddressSanitizer causes segfault on concurrent queue
+            if (!queue_.enqueue(std::move(str)))
             {
-                std::cerr << "Failed to enqueue log message :" << str << std::endl;
+                std::cerr << "Failed to enqueue log message!" << std::endl;
                 return;
             }
             {
-                std::unique_lock<std::mutex> lock(cv_mutex_);
+                std::unique_lock lock(cv_mutex_);
                 has_new_ = true;
             }
             cv_.notify_one();
+#else
+            // log directly
+            std::cout << str;
+            if (str.back() != '\n')
+            {
+                std::cout << '\n';
+            }
+#endif
         }
+    }
+    
+    void Log(const LogLevel level, const string &str)
+    {
+        Log(level, string(str));
     }
 
   private:
@@ -118,31 +133,37 @@ class ThreadedConsoleLogger
 
     void MainLoop()
     {
-        const size_t bulk_reserve_size = 64;
+#ifdef ALBC_CONFIG_ASAN
+        std::cout << "Warning: AddressSanitizer detected, threaded logging disabled." << std::endl;
+        return;
+#endif
         
         while (true)
         {
-            std::unique_lock<std::mutex> lock(cv_mutex_);
-            cv_.wait(lock, [this]() { return has_new_ || !running_; });
-            if (!running_)
-            {
-                break;
-            }
+            constexpr size_t bulk_reserve_size = 1024;
+
+            std::unique_lock lock(cv_mutex_);
+            cv_.wait(lock, [this] { return has_new_ || !running_; });
             has_new_ = false;
 
             string msg_list[bulk_reserve_size];
-            size_t bulk_size = queue_.try_dequeue_bulk(msg_list, bulk_reserve_size);
+            const size_t bulk_size = queue_.try_dequeue_bulk(msg_list, bulk_reserve_size);
 
             for (int i = 0; i < bulk_size; ++i)
             {
                 const auto &msg = msg_list[i];
                 std::cout << msg;
                 // auto add new line
-                const auto &back = msg.back();
-                if (back != '\n' && back != '\r')
+                if (const auto &back = msg.back(); back != '\n')
                 {
                     std::cout << '\n';
                 }
+            }
+
+            if (!running_)
+            {
+                std::cout << std::flush;
+                break;
             }
         }
     }
@@ -197,16 +218,19 @@ class Logger
         if (GlobalLogConfig::CanLog(m_logLevel))
         {
             LazySingleton<ThreadedConsoleLogger>::instance()->Log(
-                m_logLevel,
-                GetReadableTime()
+                m_logLevel, std::move(GetReadableTime()
                     .append("|")
-                    .append(GetLogLevelString(m_logLevel))
-                    .append("|")
-                    .append(m_stream.str()));
+                    .append(get_current_thread_id())
+                    .append(GetLogLevelTag(m_logLevel))
+                    .append(m_stream.str())));
         }
 
         m_stream.str(std::string());
         m_stream.clear();
+    }
+
+    virtual ~Logger() {
+        Flush();
     }
 
   private:
@@ -214,21 +238,20 @@ class Logger
     LogLevel m_logLevel;
 
     // get log level as string
-    static string GetLogLevelString(LogLevel e)
+    static constexpr string_view GetLogLevelTag(const LogLevel e)
     {
         switch (e)
         {
         case LogLevel::INFO:
-            return "INFO ";
+            return "|INFO |";
         case LogLevel::WARN:
-            return "WARN ";
+            return "|WARN |";
         case LogLevel::ERROR:
-            return "ERROR";
+            return "|ERROR|";
         case LogLevel::DEBUG:
-            return "DEBUG";
-        default:
-            return "UNKNOWN";
+            return "|DEBUG|";
         }
+        UNREACHABLE();
     }
 };
 

@@ -1,9 +1,9 @@
 //
 // Created by User on 2022-02-05.
 //
+#pragma once
 #pragma clang diagnostic push
 #pragma ide diagnostic ignored "OCUnusedGlobalDeclarationInspection"
-#pragma once
 #include "attributes_util.h"
 #include "bit_ops.h"
 #include "building_data_model.h"
@@ -12,7 +12,7 @@
 #include "primitive_types.h"
 #include "util.h"
 
-#define kRoomMaxBuffSlots 10
+constexpr auto kRoomMaxBuffSlots = 10;
 
 namespace albc
 {
@@ -186,12 +186,13 @@ struct __attribute__((aligned(64))) RoomAttributeModifier
 
     [[nodiscard]] string to_string() const
     {
-        string str;
-        str.reserve(256);
-        sprintf(str.data(), "[%-35s]dE:%3.f%%, dC:%2d, A:%3.f%%, mE%3.f%%",
-                ::to_string(buff_type).data(), eff_delta * 100, cap_delta, eff_inc_per_hour * 100, max_extra_eff_delta * 100);
+        char buf[256];
+        char *p = buf;
+        size_t size = sizeof buf;
+        append_snprintf(p, size, "[%-35s]dE:%3.f%%, dC:%2d, A:%3.f%%, mE:%3.f%%", ::to_string(buff_type).data(),
+                        eff_delta * 100, cap_delta, eff_inc_per_hour * 100, max_extra_eff_delta * 100);
 
-        return str;
+        return buf;
     }
 
     static constexpr void init(RoomAttributeModifier &modifier, RoomBuff *buff, const RoomBuffType buff_type,
@@ -227,14 +228,14 @@ struct __attribute__((aligned(16))) RoomFinalAttributeModifier : RoomAttributeMo
 
     string to_string() const
     {
-        string str;
-        str.reserve(256);
-        sprintf(str.data(), "[%-35s]dE:%3.f%%, dC:%2d, A:%3.f%%, mE:%3.f%%, [%-12s]nE%3.f%%", 
-                ::to_string(buff_type).data(),
-                eff_delta * 100, cap_delta, eff_inc_per_hour * 100, max_extra_eff_delta * 100,
-                ::to_string(final_mod_type).data(), eff_scale * 100);
+        char buf[256];
+        char *p = buf;
+        size_t size = sizeof buf;
+        append_snprintf(p, size, "[%-35s]dE:%3.f%%, dC:%2d, A:%3.f%%, mE:%3.f%%, [%-12s]kE%3.f%%",
+                        ::to_string(buff_type).data(), eff_delta * 100, cap_delta, eff_inc_per_hour * 100,
+                        max_extra_eff_delta * 100, ::to_string(final_mod_type).data(), eff_scale * 100);
 
-        return str;
+        return buf;
     }
 
     static constexpr void init(RoomFinalAttributeModifier &modifier, RoomBuff *buff, const RoomBuffType buff_type,
@@ -267,13 +268,12 @@ struct __attribute__((aligned(32))) CharacterCostModifier
 
     [[nodiscard]] string to_string() const
     {
-        string str;
-        str.reserve(256);
-        sprintf(str.data(),
-                "[%-15s]dC:%3.f%%",
-                ::to_string(type).data(), value * 100);
+        char buf[256];
+        char *p = buf;
+        size_t size = sizeof(buf);
+        append_snprintf(p, size, "[%-15s]dC:%3.f%%", ::to_string(type).data(), value * 100);
 
-        return str;
+        return buf;
     }
 
     static constexpr void init(CharacterCostModifier &modifier, RoomBuff *buff, const CharCostModifierType type,
@@ -296,19 +296,10 @@ struct __attribute__((aligned(32))) CharacterCostModifier
     }
 };
 
-class MutualExclusionData //用于表明多个buff是否互斥
+struct RoomDynamicFields
 {
-  public:
-    Vector<UInt32> sort_ids; //会互斥的所有buff的排序id，当同时存在多个buff时，排序id大的生效
-
-    MutualExclusionData() : sort_ids(enum_size<RoomBuffType>::value)
-    {
-    }
-};
-
-class MutualExclusionHandler //用于处理多个buff是否互斥
-{
-  public:
+    double trade_chance_indirect_eff_mul = 1;
+    double trade_four_gold_chance = 0.2;
 };
 
 class RoomModel //房间模型
@@ -318,6 +309,7 @@ class RoomModel //房间模型
     int max_slot_count = 3;                    //房间最大槽位数
     GlobalAttributeFields global_attributes{}; //全局属性
     RoomAttributeFields room_attributes{};     //房间属性
+    RoomDynamicFields dynamic_fields{};
     RoomBuff *buffs[kRoomMaxBuffSlots]{};      //房间buff
     UInt32 n_buff = 0U;                        //房间buff数量
     bm::RoomType type = bm::RoomType::NONE;    //房间类型
@@ -339,44 +331,44 @@ class RoomModel //房间模型
         --n_buff;
     }
 
+    constexpr void ResetState()
+    {
+        if (max_slot_count >= 3)
+        {
+            dynamic_fields.trade_chance_indirect_eff_mul = 1;
+            dynamic_fields.trade_four_gold_chance = 0.2;
+        }
+    }
+
     [[nodiscard]] string to_string() const
     {
-        string str;
-        str.reserve(8192);
-        str.append("[RoomModel]\n");
-        str.append("Type    :").append(::to_string(type)).append("\n");
-        str.append("ID      :").append(id).append("\n");
-        str.append("SlotCnt :").append(std::to_string(max_slot_count)).append("\n");
-        str.append("[GlobalAttributes]\n");
+        char buf[8192];
+        char *p = buf;
+        size_t size = sizeof buf;
+
+        append_snprintf(p, size, "[RoomModel]\n");
+        append_snprintf(p, size, "\t- Type    :%s\n", ::to_string(type).data());
+        append_snprintf(p, size, "\t- ID      :%s\n", id.data());
+        append_snprintf(p, size, "\t- SlotCnt :%d\n", max_slot_count);
+        append_snprintf(p, size, "[GlobalAttributes]\n");
 
         string global_attr;
         UInt32 attr_type = 0;
-        for (auto attr : global_attributes)
+        for (const auto attr : global_attributes)
         {
-            //global_attr += string(::to_string(static_cast<GlobalAttributeType>(attr_type))).append(": ").append(std::to_string(attr)).append("\n");
-            char line[256];
-            sprintf(line, "\t- %-20s: %3.f\n", ::to_string(static_cast<GlobalAttributeType>(attr_type)).data(), attr);
-            global_attr.append(line);
-
+            append_snprintf(p, size, "\t- %-20s: %3.f\n",
+                            ::to_string(static_cast<GlobalAttributeType>(attr_type)).data(), attr);
             ++attr_type;
         }
 
-        str.append(global_attr);
-        str.append("[RoomAttributes]\n");
-        char room_attr[1024];
-        sprintf(room_attr, 
-R"(        - Prod    :%s
-        - Order   :%s
-        - BaseEff :%3.f%%
-        - BaseCap :%d
-        - BaseCost:%3.f%%
-        - ProdCnt :%d
-)", 
-            ::to_string(room_attributes.prod_type).data(), ::to_string(room_attributes.order_type).data(),
-            room_attributes.base_prod_eff * 100, room_attributes.base_prod_cap, room_attributes.base_char_cost * 100, room_attributes.prod_cnt);
-        str.append(room_attr);
-
-        return str;
+        append_snprintf(p, size, "[RoomAttributes]\n");
+        append_snprintf(p, size, "\t- Prod    :%s\n", ::to_string(room_attributes.prod_type).data());
+        append_snprintf(p, size, "\t- Order   :%s\n", ::to_string(room_attributes.order_type).data());
+        append_snprintf(p, size, "\t- BaseEff :%3.f%%\n", room_attributes.base_prod_eff * 100);
+        append_snprintf(p, size, "\t- BaseCap :%d\n", room_attributes.base_prod_cap);
+        append_snprintf(p, size, "\t- BaseCost:%3.f%%\n", room_attributes.base_char_cost * 100);
+        append_snprintf(p, size, "\t- ProdCnt :%d\n", room_attributes.prod_cnt);
+        return buf;
     }
 };
 

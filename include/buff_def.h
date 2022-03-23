@@ -17,7 +17,7 @@ class BuffMap : public Dictionary<string, RoomBuff *>
         return instance;
     }
 
-    ~BuffMap()
+    virtual ~BuffMap()
     {
         for (auto &pair : *this)
         {
@@ -45,7 +45,7 @@ static void post_process_buff_map(
 
 static void init_buffs(Dictionary<string, RoomBuff *> &buffs)
 {
-    const auto &sc = SCOPE_TIMER_WITH_TRACE("Initialize Buffs");
+    const auto sc = SCOPE_TIMER_WITH_TRACE("Initialize Buffs");
 
     // ============================ Manufacture Buffs ============================
     buffs["manu_prod_spd&power[000]"] = new IncEffByPowerPlantCnt(0.05);
@@ -229,14 +229,11 @@ static void init_buffs(Dictionary<string, RoomBuff *> &buffs)
 
     // "trade_ord_limit&cost_P[010]": 默契: 当与能天使在同一个贸易站时，心情每小时消耗-0.3
     buffs["trade_ord_limit&cost_P[010]"] = new TexasTradeBuff(true);
-
-    // 孑使用等效效率 计算过程：https://www.bilibili.com/video/BV1nK4y137Xh
-    // "trade_ord_limit_count[000]": 市井之道:
-    // 进驻贸易站时，当前贸易站内其他干员提供的每10%订单获取效率使订单上限-1（订单最少为1），同时每有1笔订单就+4%订单获取效率
+    
+    // "trade_ord_limit_count[000]": 市井之道: 进驻贸易站时，当前贸易站内其他干员提供的每10%订单获取效率使订单上限-1（订单最少为1），同时每有1笔订单就+4%订单获取效率
     buffs["trade_ord_limit_count[000]"] = new JayeTradeBuff(true);
 
     // "trade_ord_limit_diff[000]": 摊贩经济: 进驻贸易站时，当前订单数与订单上限每差1笔订单，则订单获取效率+4%
-    // 假设贸易站空余10个订单数，初始加成为40%
     buffs["trade_ord_limit_diff[000]"] = new JayeTradeBuff(false);
 
     // "trade_ord_line_gold[000]": 订单流可视化·α: 进驻贸易站时，订单获取效率+5%，每有4条赤金生产线，则赤金生产线额外+2

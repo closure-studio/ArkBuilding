@@ -3,6 +3,12 @@
 //
 
 // used to bridge C++ and Go(Golang), using a c wrapper and cgo
+#pragma once
+
+#ifdef __cplusplus
+extern "C"
+{
+#endif
 
 typedef struct
 {
@@ -11,11 +17,17 @@ typedef struct
 
 typedef struct
 {
-    const char *json;
+    char *json;
 } OutParams;
 
-int AlbcRun(InParams *in, OutParams **out);
+int AlbcRun(const InParams *in, OutParams **out);
 
-void AlbcFree(OutParams *out);
+void AlbcFree(const OutParams *out);
 
 void AlbcTest(const char *game_data_path, const char *player_data_path);
+
+void AlbcSetGlobalBuildingData(const char *json);
+
+#ifdef __cplusplus
+}
+#endif

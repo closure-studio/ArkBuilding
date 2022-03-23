@@ -16,6 +16,7 @@ namespace albc
 		int exp;
 		EvolvePhase evolve_phase;
 
+		PlayerCharacter() = default;
 		explicit PlayerCharacter(const Json::Value& json);
 	};
 

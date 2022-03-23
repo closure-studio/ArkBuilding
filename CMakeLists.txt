@@ -17,6 +17,7 @@ configure_file("test/building_data.json" "building_data.json" COPYONLY)
 include_directories(exec)
 include_directories(include)
 include_directories(include/json)
+include_directories(include/alglib)
 
 add_executable(albc
         exec/main.cpp
@@ -27,5 +28,7 @@ add_executable(albc
         player_data_model.cpp
         worker.cpp
         go_bridge.cpp
-        go_bridge.h  
-        locale_util.cpp)
+        go_bridge.h
+        locale_util.cpp
+        include/operator_pattern.h)
+

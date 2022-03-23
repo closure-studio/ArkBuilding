@@ -14,9 +14,10 @@
 #include "util.h"
 
 // this marco is used to measure the execution time of a scope, and prints filename, function name, line number, and duration
-#define SCOPE_TIMER_WITH_TRACE(name) albc::diagnostics::ScopeTimer(          \
-    albc::util::GetReadableTime() + "|TIMER|" + string(__FILENAME__) + ":" +\
-    string(__PRETTY_FUNCTION__) + STRINGIFY(:__LINE__:[ScopeTimer]) + name)
+#define SCOPE_TIMER_WITH_TRACE(name) albc::diagnostics::ScopeTimer(                 \
+    albc::util::GetReadableTime().append("|").append(albc::util::get_current_thread_id())     \
+    .append("|TIMER|").append(__FILENAME__).append(":")                                        \
+    .append(__FUNCTION__).append(STRINGIFY(:__LINE__|[ScopeTimer])).append((name)))
 
 namespace albc::diagnostics
 {
@@ -52,7 +53,8 @@ namespace albc::diagnostics
             // print name and duration
             double sec = FloatingSeconds(PerfClock::now() - m_start).count();
             //std::cout << m_name << ": Done in " << sec << "s" << std::endl;
-            LazySingleton<ThreadedConsoleLogger>::instance()->Log(log_level_, m_name.append(": Done in ").append(std::to_string(sec)).append("s"));
+            LazySingleton<ThreadedConsoleLogger>::instance()->Log(
+                log_level_, std::move(m_name.append(": Done in ").append(std::to_string(sec)).append("s")));
         }
 
     private:
