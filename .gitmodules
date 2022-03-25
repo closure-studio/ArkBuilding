@@ -1,0 +1,9 @@
+[submodule "src/external/coin"]
+	path = src/external/coin
+	url = https://github.com/ampl/coin.git
+[submodule "src/external/jsoncpp"]
+	path = src/external/jsoncpp
+	url = https://github.com/open-source-parsers/jsoncpp.git
+[submodule "src/external/concurrentqueue"]
+	path = src/external/concurrentqueue
+	url = https://github.com/cameron314/concurrentqueue.git
