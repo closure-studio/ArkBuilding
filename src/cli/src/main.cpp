@@ -28,6 +28,8 @@ int main(const int argc, char* argv[])
     std::string player_data;
     std::string log_level_str;
     std::stringstream player_data_json, game_data_json;
+    std::string model_time_limit_str;
+    std::string solve_time_limit_str;
 
     // add options to parser
     // add playerdata and gamedata to parser
@@ -45,6 +47,24 @@ int main(const int argc, char* argv[])
         .abbreviation('l')
         .description("log level")
         .bind(log_level_str);
+
+    parser["model-max-time"]
+        .abbreviation('t')
+        .description("how long should simulator ")
+        .bind(model_time_limit_str);
+
+    parser["sovle-max-time"]
+        .abbreviation('T')
+        .description("problem solving timeout")
+        .bind(solve_time_limit_str);
+
+    auto& gen_lp = parser["lp-file"]
+        .abbreviation('L')
+        .description("generate a lp-format file describing the problem");
+
+    auto& gen_sol_details = parser["solution-detail"]
+        .abbreviation('S')
+        .description("generate a text file describing all feasible solution");
 
     auto &all_ops = parser["all-ops"]
         .abbreviation('a')
@@ -113,6 +133,31 @@ int main(const int argc, char* argv[])
         {
             test_cfg->mode = ALBC_TEST_MODE_ONCE;
         }
+
+        if (gen_lp.was_set())
+        {
+            test_cfg->base_parameters.solver_parameters.gen_lp_file = true;
+        }
+
+        if (gen_sol_details.was_set())
+        {
+            test_cfg->base_parameters.solver_parameters.gen_all_solution_details = true;
+        }
+
+        double model_time_limit = 3600 * 16, solve_time_limit = 20;
+
+        if (!model_time_limit_str.empty())
+        {
+            model_time_limit = std::stod(model_time_limit_str);
+        }
+
+        if (!solve_time_limit_str.empty())
+        {
+            solve_time_limit = std::stod(solve_time_limit_str);
+        }
+
+        test_cfg->base_parameters.solver_parameters.model_time_limit = model_time_limit;
+        test_cfg->base_parameters.solver_parameters.solve_time_limit = solve_time_limit;
 
         std::cout << "Reading player data file: " << player_data << std::endl;
         read_file_to_ss(player_data, player_data_json);

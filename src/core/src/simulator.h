@@ -15,6 +15,7 @@ class Simulator
   public:
     static void 
     ALBC_FLATTEN
+    ALBC_INLINE
     DoCalc(const RoomModel *room, double max_allowed_duration, double& result)
     {
         PiecewiseMap<kFuncPiecewiseMaxSegmentCount> eff_piecewise;

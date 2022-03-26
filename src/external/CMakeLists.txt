@@ -20,44 +20,45 @@ ExternalProject_Add(jsoncpp
 add_subdirectory(concurrentqueue)
 
 # Cbc
-# add_subdirectory(coin)
-# set(COIN_LIBS_PATH
-#         coin/Cbc/CoinUtils
-#         coin/Cbc/Clp
-#         coin/Cbc/Clp/src/OsiClp
-#         coin/Cbc/Osi/src/Osi
-#         coin/Cbc/Cbc
-#         coin/Cbc/Cbc/src/OsiCbc)
+set(CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS} "-fPIC") # "dangerous relocation: unsupported relocation" building Cbc on ARM64
+add_subdirectory(coin)
+set(COIN_LIBS_PATH
+        coin/Cbc/CoinUtils
+        coin/Cbc/Clp
+        coin/Cbc/Clp/src/OsiClp
+        coin/Cbc/Osi/src/Osi
+        coin/Cbc/Cbc
+        coin/Cbc/Cbc/src/OsiCbc)
 
-# foreach(name AllDifferent Clique DuplicateRow FlowCover GMI Gomory
-#               KnapsackCover LandP LiftAndProject MixedIntegerRounding
-#               MixedIntegerRounding2 OddHole PreProcess Probing RedSplit
-#               RedSplit2 ResidualCapacity SimpleRounding Twomir ZeroHalf)
-#     set(COIN_LIBS_PATH ${COIN_LIBS_PATH} coin/Cbc/Cgl/src/Cgl${name})
-# endforeach()
+foreach(name AllDifferent Clique DuplicateRow FlowCover GMI Gomory
+              KnapsackCover LandP LiftAndProject MixedIntegerRounding
+              MixedIntegerRounding2 OddHole PreProcess Probing RedSplit
+              RedSplit2 ResidualCapacity SimpleRounding Twomir ZeroHalf)
+    set(COIN_LIBS_PATH ${COIN_LIBS_PATH} coin/Cbc/Cgl/src/Cgl${name})
+endforeach()
 
-# set(COIN_INCLUDE_DIRS
-#         coin/Cbc/BuildTools/headers)
+set(COIN_INCLUDE_DIRS
+        coin/Cbc/BuildTools/headers)
 
-# function(add_coin_library path)
-#     get_filename_component(name ${path} NAME)
-#     set(COIN_LIBS ${COIN_LIBS} ${name} PARENT_SCOPE)
+function(add_coin_library path)
+    get_filename_component(name ${path} NAME)
+    set(COIN_LIBS ${COIN_LIBS} ${name} PARENT_SCOPE)
 
-#     set(src_path ${path})
-#     if (EXISTS ${PROJECT_SOURCE_DIR}/${path}/src)
-#         set(src_path ${path}/src)
-#     endif ()
+    set(src_path ${path})
+    if (EXISTS ${PROJECT_SOURCE_DIR}/${path}/src)
+        set(src_path ${path}/src)
+    endif ()
 
-#     set(COIN_INCLUDE_DIRS ${COIN_INCLUDE_DIRS} ${src_path} PARENT_SCOPE)
-#     message(STATUS "Added ${name} at ${path}")
-# endfunction()
+    set(COIN_INCLUDE_DIRS ${COIN_INCLUDE_DIRS} ${src_path} PARENT_SCOPE)
+    message(STATUS "Added ${name} at ${path}")
+endfunction()
 
-# foreach(path ${COIN_LIBS_PATH})
-#     add_coin_library(${path})
-# endforeach()
+foreach(path ${COIN_LIBS_PATH})
+    add_coin_library(${path})
+endforeach()
 
-# message(STATUS "Coin libraries: ${COIN_LIBS}")
-# message(STATUS "Coin include dirs: ${COIN_INCLUDE_DIRS}")
+message(STATUS "Coin libraries: ${COIN_LIBS}")
+message(STATUS "Coin include dirs: ${COIN_INCLUDE_DIRS}")
 
 set(ALBC_EXTERNAL_LIBS
         ${COIN_LIBS}
@@ -76,12 +77,14 @@ add_library(albcexternals
 add_dependencies(albcexternals 
         jsoncpp)
 
-target_link_libraries(albcexternals 
-        PUBLIC ${ALBC_EXTERNAL_LIBS}
-        INTERFACE jsoncpp)
+find_library(JSONCPP_LIB
+        libjsoncpp.a
+        ${ALBC_SUBPROJECT_INSTALL_DIR}/jsoncpp/lib)
 
-target_link_directories(albcexternals
-        PUBLIC ${ALBC_SUBPROJECT_INSTALL_DIR}/jsoncpp/lib)
+target_link_libraries(albcexternals 
+        PUBLIC 
+                ${ALBC_EXTERNAL_LIBS}
+                ${JSONCPP_LIB})
 
 target_include_directories(albcexternals PUBLIC ${ALBC_EXTERNAL_INCLUDE_DIRS} include)
 target_compile_definitions(albcexternals PUBLIC HAVE_CONFIG_H=1)

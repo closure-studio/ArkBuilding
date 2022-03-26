@@ -75,23 +75,7 @@ void AlbcTest(const char *game_data_json, const char *player_data_json, const Al
         LOG_I << "Running test with log level: " << to_string(log_level) << std::endl;
         {
             const auto sc = SCOPE_TIMER_WITH_TRACE("albc::worker::work");
-            switch (config->mode)
-            {
-            case ALBC_TEST_MODE_SEQUENTIAL:
-                albc::worker::run_sequential_test(player_data, game_data, log_level, config->param);
-                break;
-
-            case ALBC_TEST_MODE_PARALLEL:
-                albc::worker::run_parallel_test(player_data, game_data, log_level, config->param);
-                break;
-                
-            case ALBC_TEST_MODE_ONCE:
-                albc::worker::run_test(player_data, game_data, log_level);
-                break;
-
-            default:
-                ALBC_UNREACHABLE();
-            }
+            albc::worker::launch_test(player_data, game_data, *config);
         }
         LOG_I << "Test completed" << std::endl;
     }

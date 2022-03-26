@@ -1,5 +1,6 @@
 #pragma once
 
+#include "albc/capi.h"
 #include "buff_model.h"
 #include "operator_model.h"
 #include "operator_pattern.h"
@@ -41,16 +42,15 @@ class Algorithm
   public:
     virtual ~Algorithm() = default;
 
-    Algorithm(const Vector<RoomModel*> &rooms, const PtrVector<OperatorModel> &operators,
-              double max_allowed_duration = 3600 * 16)
-        : rooms_(rooms), all_ops_(get_raw_ptr_vector(operators)),
-          max_allowed_duration_(max_allowed_duration)
+    Algorithm(const Vector<RoomModel *> &rooms, const PtrVector<OperatorModel> &operators,
+              const AlbcSolverParameters &params)
+        : rooms_(rooms), all_ops_(get_raw_ptr_vector(operators)), params_(params)
     {
     }
-    
+
     Algorithm(const PtrVector<RoomModel> &rooms, const PtrVector<OperatorModel> &operators,
-              double max_allowed_duration = 3600 * 16)
-        : Algorithm(get_raw_ptr_vector(rooms), operators, max_allowed_duration)
+              const AlbcSolverParameters &params)
+        : Algorithm(get_raw_ptr_vector(rooms), operators, params)
     {
     }
 
@@ -60,11 +60,11 @@ class Algorithm
     Vector<RoomModel *> rooms_;
     Vector<OperatorModel *> all_ops_;
     Vector<OperatorModel *> inbound_ops_;
-    double max_allowed_duration_;
+    AlbcSolverParameters params_;
 
     void FilterOperators(const RoomModel *room);
 
-    [[nodiscard]] string GetSolutionInfo(const RoomModel &room, const SolutionData &solution) const;
+    [[nodiscard]] static string GetSolutionInfo(const RoomModel &room, const SolutionData &solution);
 };
 
 class HardMutexResolver
@@ -141,7 +141,7 @@ struct AllSolutionHolder
             Vector<ModifierApplier> mods(o->buffs.size());
             std::transform(o->buffs.begin(), o->buffs.end(), mods.begin(),
                            [](const RoomBuff *b) { return b->applier; });
-            
+
             return mods;
         });
     }
@@ -203,6 +203,17 @@ class MultiRoomIntegerProgramming : public BruteForce
     using BruteForce::BruteForce;
 
     void Run() override;
+
+  protected:
+    void GenSolDetails(const Vector<Vector<SolutionData>> &room_solution_map, Vector<UInt64> &room_solution_start_idx,
+                   size_t total_solution_count) const;
+
+    void GenLpFile(Vector<Vector<SolutionData>> &room_solution_map, const size_t var_cnt, const Vector<double> &w,
+                   const unsigned long long int cons_cnt, const unsigned long long int room_cons_idx,
+                   const Vector<Vector<double>> &a, const Vector<double> &au) const;
+
+    void GenCombForRooms(Vector<Vector<SolutionData>> &room_solution_map, Vector<UInt64> &room_solution_start_idx,
+                         size_t &total_solution_count);
 };
 } // namespace albc::algorithm
 

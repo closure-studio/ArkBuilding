@@ -13,13 +13,12 @@ function(add_albc_lib name type)
         PRIVATE 
             -Wall 
             -Wextra 
-            -Wno-unknown-pragmas 
-            -O3 
+            -Wno-unknown-pragmas
+            -ffast-math
+            -fomit-frame-pointer
+            -O3
             -fPIC)
 
-    target_compile_options(${name} 
-        PUBLIC 
-            -g)
 endfunction(add_albc_lib name type)
 
 add_albc_lib(albc_static STATIC)

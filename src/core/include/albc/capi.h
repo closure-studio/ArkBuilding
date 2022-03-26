@@ -24,7 +24,8 @@ typedef struct
 {
     bool gen_lp_file;
     bool gen_all_solution_details;
-    double time_limit;
+    double solve_time_limit;
+    double model_time_limit;
 } AlbcSolverParameters;
 
 typedef struct
@@ -38,6 +39,7 @@ typedef struct
     AlbcParameters base_parameters;
     AlbcTestMode mode;
     int param;
+    bool show_all_ops;
 } AlbcTestConfig;
 
 typedef struct

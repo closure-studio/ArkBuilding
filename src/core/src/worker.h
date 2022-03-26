@@ -1,4 +1,5 @@
 #pragma once
+#include "albc/capi.h"
 #include "buff_model.h"
 #include "building_data_model.h"
 #include "flag_util.h"
@@ -9,14 +10,16 @@
 #include "xml_util.h"
 
 namespace albc::worker
-{
-inline static bool show_all_ops = false;
-    
-void run_test(const Json::Value &player_data_json, const Json::Value &game_data_json, LogLevel logLevel);
+{   
+void launch_test(const Json::Value &player_data_json, const Json::Value &game_data_json, 
+    const AlbcTestConfig& test_config);
+
+void test_once(const Json::Value &player_data_json, const Json::Value &game_data_json, 
+    const AlbcTestConfig& test_config);
 
 void run_parallel_test(const Json::Value &player_data_json, const Json::Value &game_data_json, 
-    LogLevel logLevel, int parallel_cnt);
+    const AlbcTestConfig& test_config);
 
 void run_sequential_test(const Json::Value &player_data_json, const Json::Value &game_data_json, 
-    LogLevel logLevel, int sequential_cnt);
+    const AlbcTestConfig& test_config);
 } // namespace albc::worker

@@ -8,14 +8,35 @@
 #include "time_util.h"
 namespace albc::worker
 {
-void run_test(const Json::Value &player_data_json, const Json::Value &game_data_json, LogLevel logLevel)
+void launch_test(const Json::Value &player_data_json, const Json::Value &game_data_json, const AlbcTestConfig& test_config)
+{
+    switch (test_config.mode)
+    {
+    case ALBC_TEST_MODE_SEQUENTIAL:
+        albc::worker::run_sequential_test(player_data_json, game_data_json, test_config);
+        break;
+
+    case ALBC_TEST_MODE_PARALLEL:
+        albc::worker::run_parallel_test(player_data_json, game_data_json, test_config);
+        break;
+        
+    case ALBC_TEST_MODE_ONCE:
+        albc::worker::test_once(player_data_json, game_data_json, test_config);
+        break;
+
+    default:
+        ALBC_UNREACHABLE();
+    }
+}
+
+void test_once(const Json::Value &player_data_json, const Json::Value &game_data_json, const AlbcTestConfig& test_config)
 {
     std::shared_ptr<bm::BuildingData> building_data;
     std::shared_ptr<PlayerDataModel> player_data;
 
     const auto orig_log_level = GlobalLogConfig::GetLogLevel();
     make_defer([orig_log_level]() { GlobalLogConfig::SetLogLevel(orig_log_level); });
-    GlobalLogConfig::SetLogLevel(logLevel);
+    GlobalLogConfig::SetLogLevel(static_cast<diagnostics::LogLevel>(test_config.base_parameters.level));
 
     {
         auto sc = SCOPE_TIMER_WITH_TRACE("Data feeding");
@@ -37,7 +58,7 @@ void run_test(const Json::Value &player_data_json, const Json::Value &game_data_
         {
             if (BuffMap::instance()->count(buff_id) <= 0)
             {
-                if (show_all_ops)
+                if (test_config.show_all_ops)
                 {
                     std::cout << "\"" << buff->buff_id << "\": " << toOSCharset(buff->buff_name) << ": "
                               << toOSCharset(xml::strip_xml_tags(buff->description)) << std::endl;
@@ -45,7 +66,7 @@ void run_test(const Json::Value &player_data_json, const Json::Value &game_data_
                 ++unsupported_buff_cnt;
             }
         }
-        if (!show_all_ops)
+        if (!test_config.show_all_ops)
         {
             LOG_D << unsupported_buff_cnt
                   << R"( unsupported buff found in building data buff definitions. Add "--all-ops" param to check all.)"
@@ -72,30 +93,30 @@ void run_test(const Json::Value &player_data_json, const Json::Value &game_data_
 
     GenTestModePlayerData(*player_data, *building_data);
     WorkerParams params(*player_data, *building_data);
-    const auto sc = SCOPE_TIMER_WITH_TRACE("Running greedy algorithm");
+    const auto sc = SCOPE_TIMER_WITH_TRACE("Solving");
     Vector<RoomModel *> all_rooms;
     const auto& manu_rooms = get_raw_ptr_vector(params.GetRoomsOfType(bm::RoomType::MANUFACTURE));
     const auto& trade_tooms = get_raw_ptr_vector(params.GetRoomsOfType(bm::RoomType::TRADING));
     all_rooms.insert(all_rooms.end(), manu_rooms.begin(), manu_rooms.end());
     all_rooms.insert(all_rooms.end(), trade_tooms.begin(), trade_tooms.end());
 
-    MultiRoomIntegerProgramming alg_all(all_rooms, params.GetOperators());
+    MultiRoomIntegerProgramming alg_all(all_rooms, params.GetOperators(), test_config.base_parameters.solver_parameters);
     alg_all.Run();
 
     // MultiRoomGreedy alg_trade(params.GetRoomsOfType(bm::RoomType::TRADING), params.GetOperators());
     // alg_trade.Run();
 }
 
-void run_parallel_test(const Json::Value &player_data_json, const Json::Value &game_data_json, LogLevel logLevel, int parallel_cnt)
+void run_parallel_test(const Json::Value &player_data_json, const Json::Value &game_data_json, const AlbcTestConfig& test_config)
 {
     const auto sc = SCOPE_TIMER_WITH_TRACE("Parallel test");
 
-	LOG_I << "Running parallel test for " << parallel_cnt << " concurrency" << std::endl;
+	LOG_I << "Running parallel test for " << test_config.param << " concurrency" << std::endl;
 	
 	Vector<std::future<void>> futures;
-	for (int i = 0; i < parallel_cnt; ++i)
+	for (int i = 0; i < test_config.param; ++i)
 	{
-		futures.push_back(std::async(std::launch::async, run_test, player_data_json, game_data_json, logLevel));
+		futures.push_back(std::async(std::launch::async, test_once, player_data_json, game_data_json, test_config));
 	}
 
 	// wait for all threads to finish
@@ -107,13 +128,13 @@ void run_parallel_test(const Json::Value &player_data_json, const Json::Value &g
 	LOG_I << "Parallel test completed." << std::endl;
 }
 
-void run_sequential_test(const Json::Value &player_data_json, const Json::Value &game_data_json, LogLevel logLevel, int sequential_cnt)
+void run_sequential_test(const Json::Value &player_data_json, const Json::Value &game_data_json, const AlbcTestConfig& test_config)
 {
-    LOG_I << "Running sequential test for " << sequential_cnt << " iterations" << std::endl;
+    LOG_I << "Running sequential test for " << test_config.param << " iterations" << std::endl;
 
-    for (int i = 0; i < sequential_cnt; ++i)
+    for (int i = 0; i < test_config.param; ++i)
     {
-        run_test(player_data_json, game_data_json, logLevel);
+        test_once(player_data_json, game_data_json, test_config);
     }
 
     LOG_I << "Sequential test completed." << std::endl;
