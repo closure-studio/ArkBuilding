@@ -99,7 +99,7 @@ int main(const int argc, char* argv[])
         std::cout << "Main process started." << std::endl;
         auto level = AlbcParseLogLevel(log_level_str.c_str(), ALBC_LOG_LEVEL_WARN);
         auto test_cfg = std::make_unique<AlbcTestConfig>();
-        test_cfg->level = level;
+        test_cfg->base_parameters.level = level;
 
         if (parallel_test.was_set())
         {

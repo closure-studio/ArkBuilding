@@ -70,7 +70,7 @@ void AlbcTest(const char *game_data_json, const char *player_data_json, const Al
         const auto& player_data = read_json_from_char_array(player_data_json);
         const auto& game_data = read_json_from_char_array(game_data_json);
         
-        auto log_level = static_cast<albc::diagnostics::LogLevel>(config->level);
+        auto log_level = static_cast<albc::diagnostics::LogLevel>(config->base_parameters.level);
 
         LOG_I << "Running test with log level: " << to_string(log_level) << std::endl;
         {

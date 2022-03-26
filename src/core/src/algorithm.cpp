@@ -3,8 +3,8 @@
 #include "locale_util.h"
 #include "simulator.h"
 
-#include "CbcModel.hpp"
-#include "OsiCbcSolverInterface.hpp"
+//#include "CbcModel.hpp"
+//#include "OsiCbcSolverInterface.hpp"
 
 #include <bitset>
 #include <random>
@@ -415,7 +415,7 @@ void MultiRoomIntegerProgramming::Run()
      * max W = Σ(xi * wi)
      */
 
-    auto mip = std::make_unique<OsiCbcSolverInterface>();
+    //auto mip = std::make_unique<OsiCbcSolverInterface>();
     const auto var_cnt = total_solution_count;
 
     Vector<double> w(var_cnt);

@@ -1,10 +1,15 @@
 aux_source_directory(src ALBC_CORE_SRC_FILES)
-add_library(albc SHARED ${ALBC_CORE_SRC_FILES})
 
-target_link_libraries(albc PRIVATE albcexternals)
-target_include_directories(albc PUBLIC include)
+function(add_albc_lib name type)
+    add_library(${name} SHARED ${ALBC_CORE_SRC_FILES})
 
-set_target_properties(albc PROPERTIES CXX_VISIBILITY_PRESET hidden)
+    target_link_libraries(${name} PRIVATE albcexternals)
+    target_include_directories(${name} PUBLIC include)
 
-target_compile_options(albc PRIVATE -Wall -Wextra -O3 -fPIC)
-target_compile_options(albc PUBLIC -g)
+    set_target_properties(${name} PROPERTIES CXX_VISIBILITY_PRESET hidden)
+    target_compile_options(${name} PRIVATE -Wall -Wextra -O3 -fPIC)
+    target_compile_options(${name} PUBLIC -g)
+endfunction(add_albc_lib name type)
+
+add_albc_lib(albc_static STATIC)
+add_albc_lib(albc SHARED)
