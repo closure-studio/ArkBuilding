@@ -1,12 +1,22 @@
+include(ExternalProject)
 project(albcexternals)
 
 set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-
 set(CMAKE_WARN_DEPRECATED OFF CACHE BOOL "" FORCE)
+set(ALBC_SUBPROJECT_INSTALL_DIR ${CMAKE_CURRENT_LIST_DIR}/build)
+
+#deps added by ExternalProject_Add
+ExternalProject_Add(jsoncpp
+    SOURCE_DIR ${CMAKE_CURRENT_LIST_DIR}/jsoncpp
+    CMAKE_ARGS 
+        -DCMAKE_BUILD_TYPE=Release 
+        -DJSONCPP_WITH_CMAKE_PACKAGE=ON 
+        -DBUILD_STATIC_LIBS=ON
+        -DCMAKE_INSTALL_PREFIX:PATH=${ALBC_SUBPROJECT_INSTALL_DIR}/jsoncpp
+    PREFIX ${ALBC_SUBPROJECT_INSTALL_DIR})
 
 # deps added by add_subdirectory
-add_subdirectory(jsoncpp)
 add_subdirectory(concurrentqueue)
 
 # Cbc
@@ -51,8 +61,7 @@ add_subdirectory(concurrentqueue)
 
 set(ALBC_EXTERNAL_LIBS
         ${COIN_LIBS}
-        concurrentqueue
-        jsoncpp)
+        concurrentqueue)
 
 set(ALBC_EXTERNAL_INCLUDE_DIRS
         jsoncpp/include
@@ -61,10 +70,18 @@ set(ALBC_EXTERNAL_INCLUDE_DIRS
 
 aux_source_directory(. ALBC_EXTERNAL_SRC_FILES)
 
-add_library(albcexternals SHARED ${ALBC_EXTERNAL_SRC_FILES})
+add_library(albcexternals 
+        SHARED ${ALBC_EXTERNAL_SRC_FILES})
+
+add_dependencies(albcexternals 
+        jsoncpp)
 
 target_link_libraries(albcexternals 
-        PUBLIC ${ALBC_EXTERNAL_LIBS})
+        PUBLIC ${ALBC_EXTERNAL_LIBS}
+        INTERFACE jsoncpp)
+
+target_link_directories(albcexternals
+        PUBLIC ${ALBC_SUBPROJECT_INSTALL_DIR}/jsoncpp/lib)
 
 target_include_directories(albcexternals PUBLIC ${ALBC_EXTERNAL_INCLUDE_DIRS} include)
 target_compile_definitions(albcexternals PUBLIC HAVE_CONFIG_H=1)
