@@ -4,6 +4,7 @@
 #include "simulator.h"
 
 #include "CbcModel.hpp"
+#include "CoinModel.hpp"
 #include "OsiClpSolverInterface.hpp"
 
 #include <bitset>
@@ -58,7 +59,6 @@ string Algorithm::GetSolutionInfo(const RoomModel &room, const SolutionData &sol
     return result;
 }
 
-// this function is a transform from recursive DFS to iterative DFS, using stack
 template <typename TSolutionHolder>
 void BruteForce::MakeComb(const Vector<OperatorModel *> &operators, UInt32 max_n, RoomModel *room,
                           TSolutionHolder &solution_holder)
@@ -70,7 +70,8 @@ void BruteForce::MakeComb(const Vector<OperatorModel *> &operators, UInt32 max_n
     HardMutexResolver mutex_handler(operators, room->type);
     UInt32 calc_cnt = n_choose_k(mutex_handler.non_mutex_ops.size(), max_n);
     auto mutex_cnt = mutex_handler.MutexCombCnt();
-    calc_cnt += mutex_cnt * (n_choose_k(mutex_handler.ops_for_partial_comb.size(), max_n) - calc_cnt);
+    calc_cnt += mutex_cnt * (n_choose_k(mutex_handler.ops_for_partial_comb.size(), max_n) -
+                             calc_cnt); // 见MakePartialComb中防止重复计算部分
     solution_holder.Reserve(calc_cnt);
 
     MakePartialComb(mutex_handler.non_mutex_ops, max_n, room, all_ops, solution_holder);
@@ -102,45 +103,45 @@ void Algorithm::FilterOperators(const RoomModel *room)
             continue;
         }
 
-        if (!std::all_of(ops->buffs.begin(), ops->buffs.end(),
-                         [room](RoomBuff *buff) -> bool { return buff->ValidateTarget(room); }))
+        if (std::all_of(ops->buffs.begin(), ops->buffs.end(),
+                        [room](RoomBuff *buff) -> bool { return !buff->ValidateTarget(room); }))
         {
             continue;
         }
 
         inbound_ops_.push_back(ops);
     }
-    LOG_D << "Filtered " << inbound_ops_.size() << " operators for room: " << room->id << " : [P]"
-          << to_string(room->room_attributes.prod_type) << " [O]" << to_string(room->room_attributes.order_type)
-          << std::endl;
+    LOG_D("Filtered ", inbound_ops_.size(), " operators for room: ", room->id, " : [P]",
+          to_string(room->room_attributes.prod_type), " [O]", to_string(room->room_attributes.order_type));
 }
 
 template <typename TSolutionHolder>
 ALBC_FLATTEN void CombMaker::MakePartialComb(const Vector<OperatorModel *> &operators, UInt32 max_n, RoomModel *room,
                                              const std::bitset<kAlgOperatorSize> &enabled_root_ops,
                                              TSolutionHolder &solution_holder) const
-// root operator is the first operator in a DFS path
 {
+    // 该函数是由递归写法DFS到迭代写法DFS的转换
+    // enabled_root_ops 为允许的DFS根节点，在原有排列组合（所有干员可用）基础上新增若干个干员后，
+    // 将原先干员设为不可用，新干员设为可用，即可防止重复计算
     UInt32 size = operators.size();
     max_n = std::min(size, max_n);
     UInt32 calc_cnt = 0;
-    UInt32 pos[kRoomMaxBuffSlots]{}; // pos[i] is the index of i-th recursion
-                                     // a position indicates the index of the operator in the operators vector
 
-    UInt32 buff_cnt[kRoomMaxBuffSlots]{}; // buff_cnt[i] is the number of buffs in i-th recursion
-    bool status[kRoomMaxBuffSlots]{};     // status[i] is the status of i-th recursion
-    Vector<OperatorModel *> current(
-        max_n); // stores the ops_for_partial_comb operators, including operators in a unique combination
-    Vector<OperatorModel *> solution(max_n); // stores the best operators
+    // 栈变量，用于模拟递归栈
+    UInt32 pos[kRoomMaxBuffSlots]{};      // 第i层递归选中干员的位置
+    UInt32 buff_cnt[kRoomMaxBuffSlots]{}; // 第i层递归的buff数量
+    bool status[kRoomMaxBuffSlots]{};     // 第i层递归的状态，false为正在入栈，true为正在出栈
+
+    Vector<OperatorModel *> current(max_n); // 当前递归选中的干员
     double max_duration = Algorithm::params_.model_time_limit;
-    bool is_all_ops = enabled_root_ops.all(); // avoid unnecessary checks of the root operators
+    bool is_all_ops = enabled_root_ops.all();
 
-    UInt32 dep = 0; // depth of recursion, when dep + 1 == max_n, we have a unique combination
+    UInt32 dep = 0; // 当dep==max_n-1时，得到一个组合
     while (true)
-    {                               // when dep >= 0, the root of the recursion is not finished
-        UInt32 &cur_pos = pos[dep]; // ops_for_partial_comb position
+    {
+        UInt32 &cur_pos = pos[dep];
         bool &cur_status = status[dep];
-        if (!cur_status) // pushing
+        if (!cur_status) // 入栈
         {
             cur_status = true;
 
@@ -149,7 +150,7 @@ ALBC_FLATTEN void CombMaker::MakePartialComb(const Vector<OperatorModel *> &oper
                 current[dep] = operators[cur_pos];
                 for (auto *const buff : current[dep]->buffs)
                 {
-                    if (buff == nullptr || !check_flag(buff->room_type, room->type))
+                    if (buff == nullptr || !check_flag(buff->room_type, room->type) || !buff->ValidateTarget(room))
                     {
                         continue;
                     }
@@ -166,15 +167,14 @@ ALBC_FLATTEN void CombMaker::MakePartialComb(const Vector<OperatorModel *> &oper
                 }
                 else
                 {
-                    // in the next recursion, the position of the operator will be increased by 1
                     pos[dep + 1] = cur_pos + 1;
-                    ++dep; // move to the next recursion
+                    ++dep; // 进入下一层递归
                     continue;
                 }
             }
         }
 
-        if (cur_status) // popping
+        if (cur_status) // 出栈
         {
             room->n_buff -= buff_cnt[dep];
             buff_cnt[dep] = 0;
@@ -182,14 +182,14 @@ ALBC_FLATTEN void CombMaker::MakePartialComb(const Vector<OperatorModel *> &oper
             cur_status = false;
             if (cur_pos < size - max_n + dep)
             {
-                ++cur_pos; // move to the next operator
+                ++cur_pos;
             }
             else
             {
                 if (dep <= 0)
                     break;
 
-                --dep; // the list of operators is exhausted, move to the previous recursion
+                --dep; // 返回上一层递归或者退出
             }
         }
     }
@@ -212,28 +212,29 @@ void BruteForce::Run()
                                   .count();
 
     // prints the number of calculations
-    LOG_D << "calc cnt: " << solution_holder.calc_cnt << std::endl;
+    LOG_D("calc cnt: ", solution_holder.calc_cnt);
 
     // print elapsed time
-    LOG_D << "elapsed time: " << elapsedSec << std::endl;
+    LOG_D("elapsed time: ", elapsedSec);
 
     // prints average calculations per second
-    LOG_D << "calc/sec: " << solution_holder.calc_cnt / elapsedSec << std::endl;
+    LOG_D("calc/sec: ", solution_holder.calc_cnt / elapsedSec);
 
     // prints the best operators
     if (!solution_holder.max_solution.operators.empty())
     {
-        LOG_D << GetSolutionInfo(*room, solution_holder.max_solution) << std::endl;
+        LOG_D(GetSolutionInfo(*room, solution_holder.max_solution));
     }
     else
     {
-        LOG_E << "No operators!" << std::endl;
+        LOG_E("No operators!");
     }
 }
 
 HardMutexResolver::HardMutexResolver(const Vector<OperatorModel *> &ops, bm::RoomType room_type)
-// Hard mutual exclusion: make sure that no two operators has the same type of mutex buff in the same time
 {
+    // HardMutex 干员互斥模型，假设处于一个互斥组中的干员不能同时出现在同一个房间中
+    // 且一个干员最多只有一个互斥Buff，既只处于一个互斥组中
     static constexpr size_t buff_type_cnt = enum_size<RoomBuffType>::value;
     UInt32 buff_type_map[buff_type_cnt];
     std::fill_n(buff_type_map, buff_type_cnt, buff_type_cnt);
@@ -245,15 +246,13 @@ HardMutexResolver::HardMutexResolver(const Vector<OperatorModel *> &ops, bm::Roo
         bool op_has_mutex_buff = false;
 
         for (const auto buff : op->buffs)
-        // NOTE: this method is based on the assumption that each operator has at most one mutex buff
-        // if not so, we have to change the logic
         {
             if (buff->room_type == room_type && buff->is_mutex)
             {
                 if (op_has_mutex_buff)
                 {
-                    LOG_E << "Logic error: operator " << op->char_id << " has more than one mutex buff" << endl;
-                    LOG_E << "The buff: " << buff->buff_id << " will be ignored" << endl;
+                    LOG_E("Logic error: operator ", op->char_id, " has more than one mutex buff");
+                    LOG_E("The buff: ", buff->buff_id, " will be ignored");
                     continue;
                 }
 
@@ -338,7 +337,6 @@ UInt32 HardMutexResolver::MutexGroupCnt() const
 
 void MultiRoomGreedy::Run()
 {
-    // 打乱房间排序，该算法会运行多次以尽可能接近最优解
     std::shuffle(rooms_.begin(), rooms_.end(), std::mt19937(std::random_device()()));
 
     std::sort(rooms_.begin(), rooms_.end(),
@@ -352,13 +350,13 @@ void MultiRoomGreedy::Run()
         MakeComb(inbound_ops_, room->max_slot_count, room, solution_holder);
         if (solution_holder.max_solution.operators.empty())
         {
-            LOG_W << "No solution for room " << room->id << std::endl;
+            LOG_W("No solution for room ", room->id);
             continue;
         }
 
         if (GlobalLogConfig::CanLog(LogLevel::DEBUG))
         {
-            LOG_D << GetSolutionInfo(*room, solution_holder.max_solution) << std::endl;
+            LOG_D(GetSolutionInfo(*room, solution_holder.max_solution));
         }
 
         room_solution_map_[room->id] = solution_holder.max_solution;
@@ -376,14 +374,14 @@ void MultiRoomGreedy::Run()
 
 void MultiRoomIntegerProgramming::Run()
 {
-    Vector<Vector<SolutionData>> room_solution_map;
-    Vector<UInt64> room_solution_start_idx;
-    size_t total_solution_count = 0;
-    GenCombForRooms(room_solution_map, room_solution_start_idx, total_solution_count);
+    Vector<Vector<SolutionData>> room_solutions;
+    Vector<UInt32> room_ranges;
+    UInt32 total_solution_count = 0;
+    GenCombForRooms(room_solutions, room_ranges, total_solution_count);
 
     if (total_solution_count < 1)
     {
-        LOG_E << "No solution!" << endl;
+        LOG_W("No solution!");
         return;
     }
 
@@ -398,92 +396,167 @@ void MultiRoomIntegerProgramming::Run()
      * max W = Σ(xi * wi)
      */
 
-    // auto mip = std::make_unique<OsiCbcSolverInterface>();
-    const auto var_cnt = total_solution_count;
+    const UInt32 col_cnt = total_solution_count;
+    const UInt32 row_cnt = all_ops_.size() + rooms_.size();
+    const UInt32 room_start_row = all_ops_.size(); // 房间约束的起始索引
 
-    Vector<double> w(var_cnt);
-    Vector<double> z(var_cnt);
-    Vector<double> bndl(var_cnt);
-    Vector<double> bndu(var_cnt);
-
-    Int64 var_idx = 0;
-    for (const auto &room_solutions : room_solution_map)
+    UInt32 elem_reserve_cnt = 0;
+    UInt32 elem_cnt = 0;
+    for (int i = 0; i < (int)room_solutions.size(); ++i)
     {
-        for (const auto &solution : room_solutions)
-        {
-            w[var_idx] = solution.productivity;
-            var_idx++;
-        }
+        elem_reserve_cnt += (1 + rooms_[i]->max_slot_count) * room_solutions[i].size();
     }
-    for (UInt64 i = 0; i < total_solution_count; i++)
+
+    Vector<double> obj(col_cnt);
+    Vector<double> elems(elem_reserve_cnt, 1);
+    Vector<int> row_indices(elem_reserve_cnt);
+    Vector<int> col_indices(elem_reserve_cnt);
+    Vector<double> row_lb(row_cnt, 0);
+    Vector<double> row_ub(row_cnt, 1);
+    Vector<double> col_lb(col_cnt, 0);
+    Vector<double> col_ub(col_cnt, 1);
+
+    UInt32 col = 0;
+    for (const auto &solutions : room_solutions)
     {
-        bndl[i] = 0;
-        bndu[i] = 1;
+        for (const auto &solution : solutions)
+        {
+            obj[col] = solution.productivity;
+            col++;
+        }
     }
 
     // 构造干员inst_id到干员在all_ops_中的索引的映射
-    Vector<UInt32> op_inst_id_map(kAlgOperatorSize);
-    std::fill(op_inst_id_map.begin(), op_inst_id_map.end(), 0);
-
-    Vector<UInt32> op_inst_ids(all_ops_.size());
-    std::transform(all_ops_.begin(), all_ops_.end(), op_inst_ids.begin(),
-                   [](const OperatorModel *op) { return op->inst_id; });
-
-    for (UInt32 i = 0; i < op_inst_ids.size(); i++)
+    Vector<UInt32> op_inst_id_to_row_map(kAlgOperatorSize, 0);
+    for (UInt32 r = 0; r < room_start_row; r++)
     {
-        op_inst_id_map[op_inst_ids[i]] = i;
+        op_inst_id_to_row_map[all_ops_[r]->inst_id] = r;
     }
 
-    // 约束：每个干员最多只能选择一次， 每个房间最多选择一个组合
-    // 约束个数 = 干员数 + 房间数
-    const auto cons_cnt = all_ops_.size() + rooms_.size();
-    const auto room_cons_idx = all_ops_.size(); // 房间约束的起始索引
-
-    Vector<Vector<double>> a(cons_cnt, Vector<double>(var_cnt, 0));
-    Vector<double> al(cons_cnt);
-    Vector<double> au(cons_cnt);
-
-    for (UInt32 i = 0; i < cons_cnt; i++)
+    col = 0;
+    for (UInt32 room_idx = 0; room_idx < room_solutions.size(); ++room_idx)
     {
-        al[i] = 0;
-        au[i] = 1;
-    }
-
-    var_idx = 0;
-    for (UInt32 room_idx = 0; room_idx < room_solution_map.size(); ++room_idx)
-    {
-        for (const auto &solution : room_solution_map[room_idx])
+        for (const auto &solution : room_solutions[room_idx])
         {
             // 干员约束
             for (const auto &op : solution.operators)
             {
-                a[op_inst_id_map[op->inst_id]][var_idx] = 1;
+                row_indices[elem_cnt] = (int)op_inst_id_to_row_map[op->inst_id];
+                col_indices[elem_cnt] = (int)col;
+                elem_cnt++;
             }
 
             // 房间约束
-            a[room_cons_idx + room_idx][var_idx] = 1;
-            var_idx++;
+            row_indices[elem_cnt] = (int)(room_start_row + room_idx);
+            col_indices[elem_cnt] = (int)col;
+            elem_cnt++;
+            col++;
         }
     }
 
-    auto mip = std::make_shared<OsiClpSolverInterface>();
+    LOG_D("Inserted ", elem_cnt, " elements out of ", elem_reserve_cnt, " reserved.");
+    LOG_I("Solving problem using Cbc solver");
+    {
+        const auto &sc = SCOPE_TIMER_WITH_TRACE("Solving problem using Cbc solver");
+        OsiClpSolverInterface solver;
 
-    // generate .lp format file
+        CoinPackedMatrix m(true, row_indices.data(), col_indices.data(), elems.data(), (int)elem_cnt);
+        solver.loadProblem(m, col_lb.data(), col_ub.data(), obj.data(), row_lb.data(), row_ub.data());
+        solver.messageHandler()->setLogLevel(1);
+        solver.setHintParam(OsiDoReducePrint, true, OsiHintTry);
+        for (int c = 0; c < (int)col_cnt; ++c)
+            solver.setInteger(c);
+
+        CbcModel model(solver);
+        model.setDblParam(CbcModel::CbcMaximumSeconds, params_.solve_time_limit);
+        model.setObjSense(-1);
+        model.initialSolve();
+        model.branchAndBound();
+
+        switch (model.status())
+        {
+        case 0:
+            // success
+            break;
+
+        case 1:
+            LOG_W("Solving terminated.");
+            if (model.secondaryStatus() == 4)
+            {
+                LOG_W("Solving time limit exceeded.");
+            }
+            else
+            {
+                LOG_W("Unrecognizable secondary status code: ", model.secondaryStatus());
+            }
+            break;
+
+        default:
+            LOG_E("Unrecognizable Cbc Model status code: ", model.status());
+            return;
+        }
+
+        LOG_I("Solving finished. Optimal: ", model.isProvenOptimal());
+        LOG_I("Objective value: ", model.getObjValue());
+
+        if (!model.status() && model.getMinimizationObjValue() < 1e50)
+        {
+            UInt32 solution_cols = model.solver()->getNumCols();
+            const double *solution = model.solver()->getColSolution();
+
+            // print overall solution info
+            for (UInt32 c = 0; c < solution_cols; ++c)
+            {
+                if (!fp_eq(solution[c], 0.))
+                {
+                    UInt32 room_idx = GetRoomIdx(c, room_ranges);
+                    char buf[128];
+                    char *p = buf;
+                    size_t l = sizeof(buf);
+                    double duration = params_.model_time_limit, prod = obj[c], time_eff = prod / duration;
+                    const auto &room = *rooms_[room_idx];
+                    append_snprintf(p, l, "Room#%d [Prod %10s][Ord %10s][nSlot %d]: avg %3.f%% (+%3.f%%) (%.2f / %.2f)",
+                                    room_idx,
+                                    to_string(room.room_attributes.prod_type).data(),
+                                    to_string(room.room_attributes.order_type).data(),
+                                    room.max_slot_count,
+                                    time_eff * 100,
+                                    (time_eff - 1) * 100,
+                                    prod,
+                                    duration);
+                    LOG_I(buf);
+                }
+            }
+
+            // print solution details
+            for (UInt32 c = 0; c < solution_cols; ++c)
+            {
+                if (!fp_eq(solution[c], 0.))
+                {
+                    UInt32 room = GetRoomIdx(c, room_ranges);
+                    UInt32 index_in_room = GetIndexInRoom(c, room_ranges);
+                    LOG_D("***** Solution: col#", c, " at room#", room, " index#", index_in_room, " *****");
+                    LOG_D(GetSolutionInfo(*rooms_[room], room_solutions[room][index_in_room]));
+                }
+            }
+        }
+    }
+
     if (params_.gen_lp_file)
     {
-        GenLpFile(room_solution_map, var_cnt, w, cons_cnt, room_cons_idx, a, au);
+        GenLpFile(room_solutions, obj, row_cnt, col_cnt, elems, row_indices, col_indices, room_start_row, row_ub);
     }
 
     if (params_.gen_all_solution_details)
     {
-        GenSolDetails(room_solution_map, room_solution_start_idx, total_solution_count);
+        GenSolDetails(room_solutions, room_ranges, total_solution_count);
     }
 }
 
-void MultiRoomIntegerProgramming::GenCombForRooms(Vector<Vector<SolutionData>> &room_solution_map,
-                                                  Vector<UInt64> &room_solution_start_idx, size_t &total_solution_count)
+void MultiRoomIntegerProgramming::GenCombForRooms(Vector<Vector<SolutionData>> &room_solutions,
+                                                  Vector<UInt32> &room_ranges, UInt32 &col_cnt)
 {
-    const auto &sc = SCOPE_TIMER_WITH_TRACE("Generating solutions");
+    const auto &sc = SCOPE_TIMER_WITH_TRACE("Generating combinations");
     for (auto room : this->rooms_)
     {
         this->FilterOperators(room);
@@ -493,98 +566,103 @@ void MultiRoomIntegerProgramming::GenCombForRooms(Vector<Vector<SolutionData>> &
 
         if (solution_holder.solutions.empty())
         {
-            LOG_W << "No solution for room " << room->id << std::endl;
+            LOG_W("No solution for room ", room->id);
             continue;
         }
 
-        room_solution_start_idx.push_back(total_solution_count);
-        total_solution_count += solution_holder.solutions.size();
-        room_solution_map.emplace_back(std::move(solution_holder.solutions));
+        room_ranges.push_back(col_cnt);
+        col_cnt += solution_holder.solutions.size();
+        room_solutions.emplace_back(std::move(solution_holder.solutions));
     }
-    LOG_D << "Generated " << total_solution_count << " solutions." << endl;
+    LOG_D("Generated ", col_cnt, " combinations.");
 }
 
-void MultiRoomIntegerProgramming::GenLpFile(Vector<Vector<SolutionData>> &room_solution_map,
-                                            const size_t var_cnt, const Vector<double> &w, const unsigned long long int cons_cnt,
-                                            const unsigned long long int room_cons_idx, const Vector<Vector<double>> &a,
-                                            const Vector<double> &au) const
+void MultiRoomIntegerProgramming::GenLpFile(Vector<Vector<SolutionData>> &room_solutions, const Vector<double> &obj,
+                                            UInt32 row_cnt, UInt32 col_cnt, const Vector<double> &elems,
+                                            const Vector<int> &row_indices, Vector<int> &col_indices,
+                                            UInt32 room_start_row, const Vector<double> &row_ub) const
 {
     const auto lp_file_path = "./problem.lp";
     const auto &sc = SCOPE_TIMER_WITH_TRACE("Writing problem to File");
-    LOG_I << "Exporting LP file:" << lp_file_path << std::endl;
+    LOG_I("Exporting LP file:", lp_file_path);
 
     std::ofstream lp_file(lp_file_path);
     if (!lp_file.is_open())
     {
-        LOG_E << "open lp file failed: " << lp_file_path << std::endl;
+        LOG_E("open lp file failed: ", lp_file_path);
     }
 
-    Vector<string> var_name_map(var_cnt);
-    for (auto &var_name : var_name_map)
-        var_name.reserve(48);
+    Vector<string> col_name_map(col_cnt);
+    for (auto &col_name : col_name_map)
+        col_name.reserve(48);
 
-    UInt64 var_idx = 0;
+    UInt64 col = 0;
     UInt32 room_idx = 0;
     // regex: match "char_<number>_<char_name>", and extract <char_name>
     std::regex e("char_(\\d+)_(.+)");
-    for (const auto &room_solutions : room_solution_map)
+    for (const auto &solutions : room_solutions)
     {
-        for (const auto &solution : room_solutions)
+        for (const auto &solution : solutions)
         {
-            auto &var_name = var_name_map[var_idx];
+            auto &col_name = col_name_map[col];
 
-            var_name.append("x");
-            var_name.append(std::to_string(var_idx));
-            var_name.append("_");
-            var_name.append(this->rooms_[room_idx]->id);
+            col_name.append("x");
+            col_name.append(std::to_string(col));
+            col_name.append("_");
+            col_name.append(this->rooms_[room_idx]->id);
             for (const auto &op : solution.operators)
             {
-                var_name.append("_");
+                col_name.append("_");
                 // extract char_name
                 std::smatch m;
                 std::regex_search(op->char_id, m, e);
                 // if not matched, use char_id directly
                 if (m.empty())
-                    var_name.append(op->char_id);
+                    col_name.append(op->char_id);
                 else
-                    var_name.append(m[2]);
+                    col_name.append(m[2]);
             }
-            var_idx++;
+            col++;
         }
         ++room_idx;
     }
 
-    Vector<OperatorModel *> op_map(kAlgOperatorSize);
-
     lp_file << R"(\Arknights building arrangement problem generated by algorithm.)" << std::endl;
     lp_file << R"(\Problem info:)" << std::endl;
     lp_file << R"(\  - Room count: )" << this->rooms_.size() << std::endl;
-    lp_file << R"(\  - Combo count: )" << var_cnt << std::endl;
+    lp_file << R"(\  - Combination count: )" << col_cnt << std::endl;
     lp_file << R"(\  - Model time limit: )" << this->params_.model_time_limit << std::endl;
-    lp_file << R"(\To view details of all combos, please add cli parameter "--solution-detail / -S" or set AlbcSolverParameters in api.)" << std::endl;
+    lp_file
+        << R"(\To view details of all combinations, please add cli parameter "--solution-detail"/"-S" or set AlbcSolverParameters.gen_all_solution_details to true in api.)"
+        << std::endl;
     lp_file << "Maximize\n";
     lp_file << " obj: ";
-    for (UInt32 i = 0; i < var_cnt; i++)
+
+    for (UInt32 c = 0; c < col_cnt; c++)
     {
-        lp_file << w[i] << ' ' << var_name_map[i];
-        if (i != var_cnt - 1)
+        lp_file << obj[c] << ' ' << col_name_map[c];
+        if (c != col_cnt - 1)
         {
             lp_file << " + ";
         }
     }
 
+    Vector<Vector<std::pair<int, double>>> row_elems(row_cnt);
+    for (int i = 0; i < (int)elems.size(); i++)
+    {
+        row_elems[row_indices[i]].emplace_back(col_indices[i], elems[i]);
+    }
+
     lp_file << "\nSubject To\n";
-    for (UInt32 i = 0; i < cons_cnt; i++)
+    for (UInt32 r = 0; r < row_cnt; r++)
     {
         bool has_constraint = false;
-        for (UInt32 j = 0; j < var_cnt; j++)
+        for (const auto &[c, elem] : row_elems[r])
         {
-            if (a[i][j] <= 0)
-                continue;
-
             if (!has_constraint)
             {
-                lp_file << " " << (i < room_cons_idx ? this->all_ops_[i]->char_id : this->rooms_[i - room_cons_idx]->id)
+                lp_file << " "
+                        << (r < room_start_row ? this->all_ops_[r]->char_id : this->rooms_[r - room_start_row]->id)
                         << ": ";
                 has_constraint = true;
             }
@@ -593,62 +671,78 @@ void MultiRoomIntegerProgramming::GenLpFile(Vector<Vector<SolutionData>> &room_s
                 lp_file << " + ";
             }
 
-            if (!fp_eq(a[i][j], 1.))
+            if (!fp_eq(elem, 1.))
             {
-                lp_file << a[i][j] << var_name_map[j];
+                lp_file << elem << col_name_map[c];
             }
             else
             {
-                lp_file << var_name_map[j];
+                lp_file << col_name_map[c];
             }
         }
 
         if (has_constraint)
         {
-            lp_file << " <= " << au[i] << "\n";
+            lp_file << " <= " << row_ub[r] << "\n";
         }
     }
 
     lp_file << "Binary\n";
-    for (UInt32 i = 0; i < var_cnt; i++)
+    for (UInt32 i = 0; i < col_cnt; i++)
     {
-        lp_file << var_name_map[i] << "\n";
+        lp_file << col_name_map[i] << "\n";
     }
 
     lp_file << "End\n";
     lp_file.close();
 }
 
-void MultiRoomIntegerProgramming::GenSolDetails(const Vector<Vector<SolutionData>> &room_solution_map, Vector<UInt64> &room_solution_start_idx,
-                   size_t total_solution_count) const
+void MultiRoomIntegerProgramming::GenSolDetails(const Vector<Vector<SolutionData>> &room_solutions,
+                                                Vector<UInt32> &room_ranges, size_t col_cnt)
 {
     const auto sol_details_file_path = "./solution_details.txt";
     const auto &sc = SCOPE_TIMER_WITH_TRACE("Writing solution details to File");
-    LOG_I << "Exporting solution details file:" << sol_details_file_path << std::endl;
+    LOG_I("Exporting solution details file:", sol_details_file_path);
 
     std::ofstream sol_details_file(sol_details_file_path);
     if (!sol_details_file.is_open())
     {
-        LOG_E << "open solution details file failed: " << sol_details_file_path << std::endl;
+        LOG_E("open solution details file failed: ", sol_details_file_path);
         return;
     }
 
-    for (UInt64 i = 0; i < total_solution_count; ++i)
+    for (UInt64 c = 0; c < col_cnt; ++c)
     {
         UInt64 room_idx = -1;
         UInt64 sol_idx_in_room = 0;
-        for (auto si : room_solution_start_idx)
+        for (auto si : room_ranges)
         {
-            if (i >= si)
+            if (c >= si)
             {
                 room_idx++;
-                sol_idx_in_room = i - si;
+                sol_idx_in_room = c - si;
             }
         }
 
-        sol_details_file << "######## x" << i + 1 << ", Room#" << room_idx << "#" << sol_idx_in_room << endl;
-        sol_details_file << room_solution_map[room_idx][sol_idx_in_room].ToString() << endl;
+        sol_details_file << "######## x" << c + 1 << ", Room#" << room_idx << "#" << sol_idx_in_room << std::endl;
+        sol_details_file << room_solutions[room_idx][sol_idx_in_room].ToString() << std::endl;
     }
     sol_details_file.close();
+}
+UInt32 MultiRoomIntegerProgramming::GetRoomIdx(UInt32 col, const Vector<UInt32> &room_ranges)
+{
+    for (UInt32 i = 0; i < room_ranges.size(); ++i)
+    {
+        if (col < room_ranges[i])
+        {
+            return i - 1;
+        }
+    }
+
+    return room_ranges.size() - 1;
+}
+UInt32 MultiRoomIntegerProgramming::GetIndexInRoom(UInt32 col, const Vector<UInt32> &room_ranges)
+{
+    return col - room_ranges[GetRoomIdx(col, room_ranges)];
 }
 } // namespace albc::algorithm

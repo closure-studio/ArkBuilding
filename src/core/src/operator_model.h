@@ -14,12 +14,12 @@ class OperatorModel // 表明一个干员, 包括其属性、buff
   public:
     int inst_id;
     string char_id;
-    bm::RoomType room_type_mask; // 可以放置的房间类型, 位掩码
+    bm::RoomType room_type_mask = bm::RoomType::NONE; // 可以放置的房间类型, 位掩码
     Vector<RoomBuff *> buffs;    // 所有buff
     UInt32 duration = 86400;     // 干员在1X倍率下的剩余可工作时间, 单位: 秒
 
     OperatorModel(const PlayerCharacter &player_char, const bm::PlayerBuildingChar &building_char)
-        : inst_id(player_char.inst_id), char_id(player_char.char_id), room_type_mask(bm::RoomType::NONE),
+        : inst_id(player_char.inst_id), char_id(player_char.char_id),
           duration(building_char.ap)
     {
     }
@@ -32,7 +32,6 @@ class OperatorModel // 表明一个干员, 包括其属性、buff
     void Empower(const PlayerTroopLookup &lookup, const PlayerCharacter &player_char,
                  const bm::BuildingData &building_data, const bool error_on_buff_not_found = false,
                  const bool ignore_unlock_cond = false)
-    // ref: https://github.com/flaneur2020/pua-lang
     {
         const auto evolve_phase = player_char.evolve_phase;
         const auto level = player_char.level;
@@ -47,8 +46,7 @@ class OperatorModel // 表明一个干员, 包括其属性、buff
                 {
                     if (error_on_buff_not_found)
                     {
-                        LOG_E << "Unable to find buff with given ID! Is buff data outdated? : " << buff_data.buff_id
-                              << endl;
+                        LOG_E("Unable to find buff with given ID! Is buff data outdated? : ", buff_data.buff_id);
                     }
                     continue;
                 }
@@ -94,8 +92,8 @@ class OperatorModel // 表明一个干员, 包括其属性、buff
                                        bool remove = patch_target.count(buff->buff_id);
                                        if (remove)
                                        {
-                                           LOG_D << "Removing buff " << buff->buff_id << " from operator "
-                                                 << buff->owner_char_id << endl;
+                                           LOG_D("Removing buff ", buff->buff_id, " from operator ",
+                                                 buff->owner_char_id);
 
                                            delete buff;
                                        }

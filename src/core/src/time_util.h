@@ -52,8 +52,7 @@ namespace albc::diagnostics
         {
             // print name and duration
             double sec = FloatingSeconds(PerfClock::now() - m_start).count();
-            //std::cout << m_name << ": Done in " << sec << "s" << std::endl;
-            LazySingleton<ThreadedConsoleLogger>::instance()->Log(
+            SingletonLogger::instance()->Log(
                 log_level_, std::move(m_name.append(": Done in ").append(std::to_string(sec)).append("s")));
         }
 

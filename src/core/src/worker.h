@@ -1,5 +1,5 @@
 #pragma once
-#include "albc/capi.h"
+#include "albc/calbc.h"
 #include "buff_model.h"
 #include "building_data_model.h"
 #include "flag_util.h"
@@ -11,7 +11,14 @@
 
 namespace albc::worker
 {   
-void launch_test(const Json::Value &player_data_json, const Json::Value &game_data_json, 
+enum class TestMode
+{
+    ONCE = 0,
+    SEQUENTIAL = 1,
+    PARALLEL = 2
+};
+
+void launch_test(const Json::Value &player_data_json, const Json::Value &game_data_json,
     const AlbcTestConfig& test_config);
 
 void test_once(const Json::Value &player_data_json, const Json::Value &game_data_json, 

@@ -24,7 +24,7 @@ class BuffMap : public Dictionary<string, RoomBuff *>
             delete pair.second;
         }
 
-        LOG_D << "BuffMap destroyed" << endl;
+        LOG_D("BuffMap destroyed");
     }
 
   private:

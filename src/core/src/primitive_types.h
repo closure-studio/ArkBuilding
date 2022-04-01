@@ -10,6 +10,7 @@
 #include <string>
 #include <vector>
 #include <bitset>
+#include <cstdint>
 
 #include "albc_config.h"
 
@@ -73,13 +74,13 @@ using string_view = std::string_view;
 
 using wstring = std::wstring;
 
-using Int32 = int;
+using Int32 = int32_t;
 
-using UInt32 = unsigned int;
+using UInt32 = uint32_t;
 
-using Int64 = long long;
+using Int64 = int64_t;
 
-using UInt64 = unsigned long long;
+using UInt64 = uint64_t;
 
 using Exception = std::exception;
 } // namespace albc::primitive_types

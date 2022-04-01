@@ -1,6 +1,6 @@
 #pragma once
 
-#include "albc/capi.h"
+#include "albc/calbc.h"
 #include "buff_model.h"
 #include "operator_model.h"
 #include "operator_pattern.h"
@@ -10,6 +10,60 @@ namespace albc::algorithm
 {
 static constexpr size_t kAlgOperatorSize = 512;
 static constexpr size_t kRoomMaxOperators = 5;
+
+/**
+ * Column-major sparse matrix
+ * @tparam T type of elements
+ */
+template <typename T> class Matrix2D
+{
+  public:
+    Matrix2D(size_t row, size_t col, const T &x) : row_(row), col_(col)
+    {
+        data_.resize(row * col, x);
+        index_.resize(row);
+        for (size_t i = 0; i < row; ++i)
+        {
+            index_[i] = &data_[i * col];
+        }
+    }
+
+    [[nodiscard]] size_t Row() const
+    {
+        return row_;
+    }
+
+    [[nodiscard]] size_t Col() const
+    {
+        return col_;
+    }
+
+    const T *operator[](size_t row) const
+    {
+        return index_[row];
+    }
+
+    T *operator[](size_t row)
+    {
+        return index_[row];
+    }
+
+    T *Data()
+    {
+        return data_.data();
+    }
+
+    const T *Data() const
+    {
+        return data_.data();
+    }
+
+  private:
+    Vector<T> data_;
+    Vector<double *> index_;
+    size_t row_;
+    size_t col_;
+};
 
 class SolutionData
 {
@@ -182,7 +236,6 @@ class MultiRoomGreedy : public BruteForce
     // 2. 在当前可用的干员列表中选出加成最高的干员组合，作为当前房间的干员
     // 3. 从可用干员列表中剔除已选择的干员，重复步骤1、2，直到所有房间都完成
     // 默认房间优先级为：干员容量大的房间优先，因为这样更有可能排列出生产效率高的Buff组合
-    // TODO: 房间优先级的其他设置
   public:
     using BruteForce::BruteForce;
 
@@ -205,15 +258,18 @@ class MultiRoomIntegerProgramming : public BruteForce
     void Run() override;
 
   protected:
-    void GenSolDetails(const Vector<Vector<SolutionData>> &room_solution_map, Vector<UInt64> &room_solution_start_idx,
-                   size_t total_solution_count) const;
+    static void GenSolDetails(const Vector<Vector<SolutionData>> &room_solutions, Vector<UInt32> &room_ranges,
+                              size_t col_cnt);
 
-    void GenLpFile(Vector<Vector<SolutionData>> &room_solution_map, const size_t var_cnt, const Vector<double> &w,
-                   const unsigned long long int cons_cnt, const unsigned long long int room_cons_idx,
-                   const Vector<Vector<double>> &a, const Vector<double> &au) const;
+    void GenLpFile(Vector<Vector<SolutionData>> &room_solutions, const Vector<double> &obj, UInt32 row_cnt,
+                   UInt32 col_cnt, const Vector<double> &elems, const Vector<int> &row_indices,
+                   Vector<int> &col_indices, UInt32 room_start_row, const Vector<double> &row_ub) const;
 
-    void GenCombForRooms(Vector<Vector<SolutionData>> &room_solution_map, Vector<UInt64> &room_solution_start_idx,
-                         size_t &total_solution_count);
+    void GenCombForRooms(Vector<Vector<SolutionData>> &room_solutions, Vector<UInt32> &room_ranges, UInt32 &col_cnt);
+
+    [[nodiscard]] static UInt32 GetRoomIdx(UInt32 col, const Vector<UInt32> &room_ranges) ;
+
+    [[nodiscard]] static UInt32 GetIndexInRoom(UInt32 col, const Vector<UInt32> &room_ranges) ;
 };
 } // namespace albc::algorithm
 

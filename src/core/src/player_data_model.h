@@ -25,6 +25,7 @@ namespace albc
 	public:
 		PtrDictionary<string, PlayerCharacter> chars;
 
+        PlayerTroop() = default;
 		explicit PlayerTroop(const Json::Value& json);
 	};
 
@@ -34,6 +35,7 @@ namespace albc
 		PlayerTroop troop;
 		bm::PlayerBuilding building;
 
+        PlayerDataModel() = default;
 		explicit PlayerDataModel(const Json::Value& json);
 	};
 

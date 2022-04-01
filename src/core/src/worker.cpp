@@ -1,14 +1,15 @@
 // ReSharper disable StringLiteralTypo
-#include <future>
 #include "worker.h"
 #include "algorithm.h"
 #include "buff_def.h"
 #include "locale_util.h"
 #include "player_data_model.h"
 #include "time_util.h"
+#include <future>
 namespace albc::worker
 {
-void launch_test(const Json::Value &player_data_json, const Json::Value &game_data_json, const AlbcTestConfig& test_config)
+void launch_test(const Json::Value &player_data_json, const Json::Value &game_data_json,
+                 const AlbcTestConfig &test_config)
 {
     switch (test_config.mode)
     {
@@ -19,7 +20,7 @@ void launch_test(const Json::Value &player_data_json, const Json::Value &game_da
     case ALBC_TEST_MODE_PARALLEL:
         albc::worker::run_parallel_test(player_data_json, game_data_json, test_config);
         break;
-        
+
     case ALBC_TEST_MODE_ONCE:
         albc::worker::test_once(player_data_json, game_data_json, test_config);
         break;
@@ -29,7 +30,8 @@ void launch_test(const Json::Value &player_data_json, const Json::Value &game_da
     }
 }
 
-void test_once(const Json::Value &player_data_json, const Json::Value &game_data_json, const AlbcTestConfig& test_config)
+void test_once(const Json::Value &player_data_json, const Json::Value &game_data_json,
+               const AlbcTestConfig &test_config)
 {
     std::shared_ptr<bm::BuildingData> building_data;
     std::shared_ptr<PlayerDataModel> player_data;
@@ -40,16 +42,16 @@ void test_once(const Json::Value &player_data_json, const Json::Value &game_data
 
     {
         auto sc = SCOPE_TIMER_WITH_TRACE("Data feeding");
-        LOG_I << "Parsing building json object." << std::endl;
+        LOG_I("Parsing building json object.");
         try
         {
             building_data = std::make_shared<bm::BuildingData>(game_data_json);
-            LOG_I << "Loaded " << building_data->chars.size() << " building character definitions." << std::endl;
-            LOG_I << "Loaded " << building_data->buffs.size() << " building buff definitions." << std::endl;
+            LOG_I("Loaded ", building_data->chars.size(), " building character definitions.");
+            LOG_I("Loaded ", building_data->buffs.size(), " building buff definitions.");
         }
         catch (const std::exception &e)
         {
-            LOG_E << "Error: Unable to parse game building data json object: " << e.what() << std::endl;
+            LOG_E("Error: Unable to parse game building data json object: ", e.what());
             throw;
         }
 
@@ -60,83 +62,80 @@ void test_once(const Json::Value &player_data_json, const Json::Value &game_data
             {
                 if (test_config.show_all_ops)
                 {
-                    std::cout << "\"" << buff->buff_id << "\": " << toOSCharset(buff->buff_name) << ": "
-                              << toOSCharset(xml::strip_xml_tags(buff->description)) << std::endl;
+                    VariantPut(std::cout, "\"", buff->buff_id, "\": ", toOSCharset(buff->buff_name), ": ",
+                               toOSCharset(xml::strip_xml_tags(buff->description)));
                 }
                 ++unsupported_buff_cnt;
             }
         }
         if (!test_config.show_all_ops)
         {
-            LOG_D << unsupported_buff_cnt
-                  << R"( unsupported buff found in building data buff definitions. Add "--all-ops" param to check all.)"
-                  << std::endl;
+            LOG_D(unsupported_buff_cnt,
+                  R"( unsupported buff found in building data buff definitions. Add "--all-ops" param to check all.)");
         }
 
-        LOG_I << "Parsing player json object." << std::endl;
+        LOG_I("Parsing player json object.");
         try
         {
             player_data = std::make_shared<PlayerDataModel>(player_data_json);
-            LOG_I << "Added " << player_data->troop.chars.size() << " existing character instance" << std::endl;
-            LOG_I << "Added " << player_data->building.player_building_room.manufacture.size() << " factories."
-                  << std::endl;
-            LOG_I << "Added " << player_data->building.player_building_room.trading.size() << " trading posts."
-                  << std::endl;
-            LOG_I << "Player building data parsing completed." << std::endl;
+            LOG_I("Added ", player_data->troop.chars.size(), " existing character instance");
+            LOG_I("Added ", player_data->building.player_building_room.manufacture.size(), " factories.");
+            LOG_I("Added ", player_data->building.player_building_room.trading.size(), " trading posts.");
+            LOG_I("Player building data parsing completed.");
         }
         catch (std::exception &e)
         {
-            LOG_E << "Error: Unable to parse player data json object: " << e.what() << std::endl;
+            LOG_E("Error: Unable to parse player data json object: ", e.what());
             throw;
         }
     }
 
-    GenTestModePlayerData(*player_data, *building_data);
+    // GenTestModePlayerData(*player_data, *building_data);
     WorkerParams params(*player_data, *building_data);
     const auto sc = SCOPE_TIMER_WITH_TRACE("Solving");
     Vector<RoomModel *> all_rooms;
-    const auto& manu_rooms = get_raw_ptr_vector(params.GetRoomsOfType(bm::RoomType::MANUFACTURE));
-    const auto& trade_tooms = get_raw_ptr_vector(params.GetRoomsOfType(bm::RoomType::TRADING));
+    const auto &manu_rooms = get_raw_ptr_vector(params.GetRoomsOfType(bm::RoomType::MANUFACTURE));
+    const auto &trade_tooms = get_raw_ptr_vector(params.GetRoomsOfType(bm::RoomType::TRADING));
     all_rooms.insert(all_rooms.end(), manu_rooms.begin(), manu_rooms.end());
     all_rooms.insert(all_rooms.end(), trade_tooms.begin(), trade_tooms.end());
 
-    MultiRoomIntegerProgramming alg_all(all_rooms, params.GetOperators(), test_config.base_parameters.solver_parameters);
+    MultiRoomIntegerProgramming alg_all(all_rooms, params.GetOperators(),
+                                        test_config.base_parameters.solver_parameters);
     alg_all.Run();
-
-    // MultiRoomGreedy alg_trade(params.GetRoomsOfType(bm::RoomType::TRADING), params.GetOperators());
-    // alg_trade.Run();
 }
 
-void run_parallel_test(const Json::Value &player_data_json, const Json::Value &game_data_json, const AlbcTestConfig& test_config)
+void run_parallel_test(const Json::Value &player_data_json, const Json::Value &game_data_json,
+                       const AlbcTestConfig &test_config)
 {
     const auto sc = SCOPE_TIMER_WITH_TRACE("Parallel test");
 
-	LOG_I << "Running parallel test for " << test_config.param << " concurrency" << std::endl;
-	
-	Vector<std::future<void>> futures;
-	for (int i = 0; i < test_config.param; ++i)
-	{
-		futures.push_back(std::async(std::launch::async, test_once, player_data_json, game_data_json, test_config));
-	}
+    LOG_I("Running parallel test for ", test_config.param, " concurrency");
 
-	// wait for all threads to finish
-	for (auto &f : futures)
-	{
-		f.wait();
-	}
+    Vector<std::future<void>> futures;
+    for (int i = 0; i < test_config.param; ++i)
+    {
+        futures.push_back(std::async(std::launch::async, test_once, player_data_json, game_data_json, test_config));
+    }
 
-	LOG_I << "Parallel test completed." << std::endl;
+    // wait for all threads to finish
+    for (auto &f : futures)
+    {
+        f.wait();
+    }
+
+    LOG_I("Parallel test completed.");
 }
 
-void run_sequential_test(const Json::Value &player_data_json, const Json::Value &game_data_json, const AlbcTestConfig& test_config)
+void run_sequential_test(const Json::Value &player_data_json, const Json::Value &game_data_json,
+                         const AlbcTestConfig &test_config)
 {
-    LOG_I << "Running sequential test for " << test_config.param << " iterations" << std::endl;
+    LOG_I("Running sequential test for ", test_config.param, " iterations");
 
     for (int i = 0; i < test_config.param; ++i)
     {
         test_once(player_data_json, game_data_json, test_config);
     }
 
-    LOG_I << "Sequential test completed." << std::endl;
+    LOG_I("Sequential test completed.");
 }
 } // namespace albc::worker

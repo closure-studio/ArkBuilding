@@ -1,13 +1,11 @@
-#include <chrono>
-#include <pthread.h>
-#include <fstream>
+#include "albc/albc.h"
 
-#include "albc/capi.h"
+#include <fstream>
 
 #define PROGRAMOPTIONS_NO_COLORS
 #include "ProgramOptions/ProgramOptions.hxx"
 
-void read_file_to_ss(const std::string& filename, std::stringstream& ss)
+void read_file_to_ss(const std::string &filename, std::stringstream &ss)
 {
     std::ifstream ifs(filename);
     if (!ifs.is_open())
@@ -18,71 +16,68 @@ void read_file_to_ss(const std::string& filename, std::stringstream& ss)
     std::cout << "Read file: " << filename << ", size: " << ss.str().size() << std::endl;
 }
 
-int main(const int argc, char* argv[])
-{    
-    // Enable buffering to prevent VS from chopping up UTF-8 byte sequences
-    setvbuf(stdout, nullptr, _IOFBF, 1000);
-
+int main(const int argc, char *argv[])
+{
     po::parser parser;
     std::string game_data;
     std::string player_data;
     std::string log_level_str;
     std::stringstream player_data_json, game_data_json;
-    std::string model_time_limit_str;
-    std::string solve_time_limit_str;
+    std::string model_time_limit_str = "57600";
+    std::string solve_time_limit_str = "20";
+    std::string albc_test_mode_str;
+    std::string albc_test_param_str;
 
     // add options to parser
     // add playerdata and gamedata to parser
     parser["playerdata"]
         .abbreviation('p')
-        .description("path to player data file")
+        .description("Path to player data file.                 \nPATH                            : string")
         .bind(player_data);
 
     parser["gamedata"]
         .abbreviation('g')
-        .description("path to arknights building data file")
+        .description("Path to Arknights building data file.     \nPATH                            : string")
         .bind(game_data);
 
     parser["log-level"]
         .abbreviation('l')
-        .description("log level")
+        .description("Log level.\nDefault is WARN.              \n<DEBUG|INFO|WARN|ERROR>         : string")
         .bind(log_level_str);
 
     parser["model-max-time"]
         .abbreviation('t')
-        .description("how long should simulator ")
+        .description(
+            "Model time limit in seconds.\nDefault is 57600 (16 hours). \nTIME                            : double")
         .bind(model_time_limit_str);
 
     parser["sovle-max-time"]
         .abbreviation('T')
-        .description("problem solving timeout")
+        .description("Problem solving timeout in seconds.\nDefault is 20. \nTIME                            : double")
         .bind(solve_time_limit_str);
 
-    auto& gen_lp = parser["lp-file"]
-        .abbreviation('L')
-        .description("generate a lp-format file describing the problem");
+    parser["test-mode"]
+        .abbreviation('m')
+        .description("Test mode. Leave empty for normal mode.   \n<ONCE|SEQUENTIAL|PARALLEL>      : string")
+        .bind(albc_test_mode_str);
 
-    auto& gen_sol_details = parser["solution-detail"]
-        .abbreviation('S')
-        .description("generate a text file describing all feasible solution");
+    parser["test-param"]
+        .abbreviation('P')
+        .description("Test param.                               \nNUM_CONCURRENCY|NUM_ITERATIONS  : int")
+        .bind(albc_test_param_str);
 
-    auto &all_ops = parser["all-ops"]
-        .abbreviation('a')
-        .description("show all operators info");
+    auto &gen_lp = parser["lp-file"].abbreviation('L').description(
+        "Generate a lp-format file describing the problem.         : FLAG");
+
+    auto &gen_sol_details = parser["solution-detail"].abbreviation('S').description(
+        "Generate a text file describing all feasible solution.    : FLAG");
+
+    auto &all_ops = parser["all-ops"].abbreviation('a').description(
+        "Show all operators info.                                  : FLAG");
 
     // add help to parser
-    auto& help = parser["help"]
-        .abbreviation('h')
-        .description("produce help message");
-
-    auto& go_test = parser["go-test"]
-        .description("run golang API test");
-
-    auto& parallel_test = parser["parallel-test"]
-        .description("run parallel test");
-
-    auto& seq_test = parser["seq-test"]
-        .description("run sequential test");
+    auto &help = parser["help"].abbreviation('h').description(
+        "Produce help message.                                     : FLAG");
 
     // parse command line
     if (!parser.parse(argc, argv))
@@ -97,8 +92,9 @@ int main(const int argc, char* argv[])
         return 0;
     }
 
+    bool test_enabled = !albc_test_mode_str.empty();
     // check if all required options are set
-    if (player_data.empty() || game_data.empty())
+    if (player_data.empty() || game_data.empty() || (test_enabled && albc_test_param_str.empty()))
     {
         std::cerr << "Error: Missing required options!" << std::endl;
         // print missing options name
@@ -110,71 +106,57 @@ int main(const int argc, char* argv[])
         {
             std::cerr << "must specify the path to building data file!" << std::endl;
         }
+        if (test_enabled && albc_test_param_str.empty())
+        {
+            std::cerr << "must specify the test param!" << std::endl;
+        }
 
         std::cout << parser << std::endl;
         return -1;
     }
-	try
-	{
+
+    try
+    {
         std::cout << "Main process started." << std::endl;
-        auto level = AlbcParseLogLevel(log_level_str.c_str(), ALBC_LOG_LEVEL_WARN);
-        auto test_cfg = std::make_unique<AlbcTestConfig>();
-        test_cfg->base_parameters.level = level;
-
-        if (parallel_test.was_set())
-        {
-            test_cfg->mode = ALBC_TEST_MODE_PARALLEL;
-        }
-        else if (seq_test.was_set())
-        {
-            test_cfg->mode = ALBC_TEST_MODE_SEQUENTIAL;
-        }
-        else
-        {
-            test_cfg->mode = ALBC_TEST_MODE_ONCE;
-        }
-
-        if (gen_lp.was_set())
-        {
-            test_cfg->base_parameters.solver_parameters.gen_lp_file = true;
-        }
-
-        if (gen_sol_details.was_set())
-        {
-            test_cfg->base_parameters.solver_parameters.gen_all_solution_details = true;
-        }
-
-        double model_time_limit = 3600 * 16, solve_time_limit = 20;
-
-        if (!model_time_limit_str.empty())
-        {
-            model_time_limit = std::stod(model_time_limit_str);
-        }
-
-        if (!solve_time_limit_str.empty())
-        {
-            solve_time_limit = std::stod(solve_time_limit_str);
-        }
-
-        test_cfg->base_parameters.solver_parameters.model_time_limit = model_time_limit;
-        test_cfg->base_parameters.solver_parameters.solve_time_limit = solve_time_limit;
+        std::cout << "Reading game data file: " << game_data << std::endl;
+        read_file_to_ss(game_data, game_data_json);
+        albc::SetGlobalBuildingData(game_data_json.str().c_str());
 
         std::cout << "Reading player data file: " << player_data << std::endl;
         read_file_to_ss(player_data, player_data_json);
 
-        std::cout << "Reading game data file: " << game_data << std::endl;
-        read_file_to_ss(game_data, game_data_json);
+        if (test_enabled)
+        {
+            std::cout << "Test mode: " << albc_test_mode_str << std::endl;
+            std::cout << "Test param: " << albc_test_param_str << std::endl;
+            std::cout << "Running test..." << std::endl;
 
-        AlbcSetGlobalBuildingData(game_data_json.str().c_str());
-        AlbcTest(game_data_json.str().c_str(), player_data_json.str().c_str(), test_cfg.get());
+            auto test_cfg = std::make_unique<AlbcTestConfig>();
+            test_cfg->base_parameters.level = albc::ParseLogLevel(log_level_str.c_str(), ALBC_LOG_LEVEL_WARN);
+            test_cfg->mode = albc::ParseTestMode(albc_test_mode_str.c_str(), ALBC_TEST_MODE_ONCE);
+            test_cfg->param = std::stoi(albc_test_param_str);
+            test_cfg->show_all_ops = all_ops.was_set();
+
+            auto &sp = test_cfg->base_parameters.solver_parameters;
+            sp.gen_lp_file = gen_lp.was_set();
+            sp.gen_all_solution_details = gen_sol_details.was_set();
+            sp.model_time_limit = std::stod(model_time_limit_str);
+            sp.solve_time_limit = std::stod(solve_time_limit_str);
+            albc::RunTest(game_data_json.str().c_str(), player_data_json.str().c_str(), test_cfg.get());
+        }
+        else // if (test_enabled)
+        {
+            // TODO: normal mode
+            std::cout << "Normal mode" << std::endl;
+        }
+
+        albc::FlushLog();
         std::cout << "Main process successfully completed." << std::endl;
-		return 0;
-	}
-    catch (const std::exception& e)
+        return 0;
+    }
+    catch (const std::exception &e)
     {
         std::cerr << "Exception: " << e.what() << std::endl;
         return -1;
     }
-
-    //AlbcFlushLog();
 }

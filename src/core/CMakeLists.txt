@@ -4,15 +4,21 @@ function(add_albc_lib name type)
     add_library(${name} ${type} ${ALBC_CORE_SRC_FILES})
 
     target_link_libraries(${name} PRIVATE albcexternals pthread)
+    if (WIN32)
+        target_link_options(${name} PRIVATE -Wl,--output-def,lib${name}.def)
+    endif()
+
+    target_link_options(${name} PRIVATE -Wl,--exclude-libs=ALL,-static) # only public API
+
     target_include_directories(${name} PUBLIC include)
 
-    set_target_properties(${name} PROPERTIES 
+    set_target_properties(${name} PROPERTIES
         CXX_VISIBILITY_PRESET hidden)
 
-    target_compile_options(${name} 
-        PRIVATE 
-            -Wall 
-            -Wextra 
+    target_compile_options(${name}
+        PRIVATE
+            -Wall
+            -Wextra
             -Wno-unknown-pragmas
             -ffast-math
             -fomit-frame-pointer
@@ -21,5 +27,5 @@ function(add_albc_lib name type)
 
 endfunction(add_albc_lib name type)
 
-add_albc_lib(albc_static STATIC)
 add_albc_lib(albc SHARED)
+add_albc_lib(albc_static STATIC)

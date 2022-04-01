@@ -73,6 +73,7 @@ class BuildingData
     PtrDictionary<string, BuildingCharacter> chars;
     PtrDictionary<string, BuildingBuff> buffs;
 
+    BuildingData() = default;
     explicit BuildingData(const Json::Value &json);
 };
 } // namespace albc::bm

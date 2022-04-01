@@ -7,15 +7,15 @@
 namespace albc
 {
 	struct PiecewiseDef
-	{ // this struct indicates a segment of the piecewise function
-	  // the segment is defined by the following equation:
-	  // f(t) = mul * (base + acc * t) + extra
-	  // base, acc, mul, and extra of a segment is aggregated by all the segments that are defined before it
-	  // base = base_n + base_n-1 + ... + base_1 + base_0
-	  // acc = acc_n + acc_n-1 + ... + acc_1 + acc_0
-	  // mul = mul_n * mul_n-1 * ... * mul_1 * mul_0
-	  // extra = extra_n + extra_n-1 + ... + extra_1 + extra_0
-
+	{ 
+		// 该结构体表示一个分段函数的段
+		// 段的定义是：
+		// f(t) = mul * (base + acc * t) + extra
+		// 某段中的base, acc, mul, 和extra 是所有之前定义的段的中响应值的累加：
+		// base = base_n + base_n-1 + ... + base_1 + base_0
+		// acc = acc_n + acc_n-1 + ... + acc_1 + acc_0
+		// mul = mul_n * mul_n-1 * ... * mul_1 * mul_0
+		// extra = extra_n + extra_n-1 + ... + extra_1 + extra_0
 		double base_delta = 0;	// base_n - base_n-1
 		double acc_delta = 0;	// acc_n - acc_n-1
 		double mul = 1;			// mul_n / mul_n-1
@@ -42,8 +42,8 @@ namespace albc
 
 	template <UInt32 N>
 	struct PiecewiseMap
-	{ // indicates all the segments of the piecewise function
-	  // using a forward-linked list
+	{
+		// 土制前向链表，表示函数中的所有段
 		struct Forward
 		{
 			PiecewiseIndex data{INFINITY, {0., 0., 1., 0.}};
@@ -101,17 +101,17 @@ namespace albc
 			}
 		};
 
-		Forward f_list[N + 1U];	   // nodes of the forward-linked list
-		Forward *before_begin_ptr; // before-begin node
-		UInt32 n = 0;			   // number of segments, excluding the before-begin node
+		Forward f_list[N + 1U];
+		Forward *before_begin_ptr; // 指向第一个段的前一个指针
+		UInt32 n = 0;			   // 段的数量，不包含第一段之前的段
 
 		PiecewiseMap()
 		{
 			for (auto &fwd : f_list)
-			{ // initialize the forward-linked list
+			{
 				fwd.next = nullptr;
 			}
-			before_begin_ptr = std::addressof(f_list[0]); // before-begin node
+			before_begin_ptr = std::addressof(f_list[0]);
 		}
 
 		[[nodiscard]] constexpr auto empty() const -> bool
@@ -143,25 +143,25 @@ namespace albc
 		constexpr void Insert(const double ts, const double base, const double acc, const double mul,
 							  const double extra)
 			__attribute__((always_inline))
-		{								  // insert a new segment
+		{
             bool do_append = true;
-			Iterator it = before_begin(); // before-begin node
+			Iterator it = before_begin();
             Forward* cur_seg = it.ptr;
 			for (; it.HasNext(); ++it)
 			{
                 cur_seg = it.ptr;
                 if (fp_eq(cur_seg->data.ts, ts))
-				{ // if the segment with the same ts exists, merge the existing segment with the new one
+				{
                     do_append = false;
                     break;
 				}else if (ts > cur_seg->data.ts)
-				{ // found insertion point
+				{
 					break;
 				}
 			}
 
             if(do_append) {
-                assert(n < N + 1); // prevent overflow
+                assert(n < N + 1);
                 cur_seg = &f_list[++n];
                 cur_seg->next = it.ptr->next;
                 it.ptr->next = cur_seg;

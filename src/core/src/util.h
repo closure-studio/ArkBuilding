@@ -166,7 +166,7 @@ namespace albc::util
 
     template <typename TU> static constexpr bool is_pow_of_two(TU n)
     {
-        return n && (!(n & (n - 1)));
+        return n && (!(n & (n - 1))); // std::has_single_bit(n);
     }
 
     static constexpr int ctz(UInt32 x)

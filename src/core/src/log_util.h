@@ -12,39 +12,40 @@
 #define ALBC_LOG_UNIQUE2(name, id) $##name##$##id
 #define ALBC_LOG_UNIQUE(name, id) ALBC_LOG_UNIQUE2(name, id)
 
-#define ALBC_LOG_COMPILE_TIME_DEFINE_CONSTEXPR_STRING_VIEW(n, s) static constexpr std::string_view n = s;
+#define ALBC_LOG_CONSTEXPR_STRING_VIEW(n, s) static constexpr std::string_view n = s;
 
 #define ALBC_LOG_COMPILE_TIME_BUILD_TAG(name, id)                                                                      \
-    ALBC_LOG_COMPILE_TIME_DEFINE_CONSTEXPR_STRING_VIEW(ALBC_LOG_UNIQUE(filename, id), __FILENAME__)                    \
-    ALBC_LOG_COMPILE_TIME_DEFINE_CONSTEXPR_STRING_VIEW(ALBC_LOG_UNIQUE(funcname, id), __FUNCTION__)             \
-    ALBC_LOG_COMPILE_TIME_DEFINE_CONSTEXPR_STRING_VIEW(ALBC_LOG_UNIQUE(line, id), STRINGIFY(__LINE__))                 \
+    ALBC_LOG_CONSTEXPR_STRING_VIEW(ALBC_LOG_UNIQUE(filename, id), __FILENAME__)                                        \
+    ALBC_LOG_CONSTEXPR_STRING_VIEW(ALBC_LOG_UNIQUE(funcname, id), __FUNCTION__)                                        \
+    ALBC_LOG_CONSTEXPR_STRING_VIEW(ALBC_LOG_UNIQUE(line, id), STRINGIFY(__LINE__))                 \
     static constexpr std::string_view ALBC_LOG_UNIQUE(name, id) =                                                      \
         albc::util::join_v<ALBC_LOG_UNIQUE(filename, id), albc::diagnostics::kColonSep, ALBC_LOG_UNIQUE(funcname, id), \
                            albc::diagnostics::kColonSep, ALBC_LOG_UNIQUE(line, id), albc::diagnostics::kBarSep>;
 
-#define ALBC_LOG_DO_S_LOG_PUT_TAG(target, content) target << content
+#define ALBC_LOG_DO_S_LOG(id, target, ...)                                                                             \
+    do                                                                                                                 \
+    {                                                                                                                  \
+        ALBC_LOG_COMPILE_TIME_BUILD_TAG(loc, id)                                                                       \
+        albc::diagnostics::VariantPut(target, ALBC_LOG_UNIQUE(loc, id), __VA_ARGS__) << std::endl;                     \
+    } while (false)
 
-#define ALBC_LOG_DO_S_LOG(id, target)                                                                                  \
-    ALBC_LOG_COMPILE_TIME_BUILD_TAG(loc, id)                                                                           \
-    ALBC_LOG_DO_S_LOG_PUT_TAG(target, ALBC_LOG_UNIQUE(loc, id))
+#define S_LOG(target, ...) ALBC_LOG_DO_S_LOG(__COUNTER__, target, __VA_ARGS__)
 
-#define S_LOG(target) ALBC_LOG_DO_S_LOG(__COUNTER__, target)
-
-#define CREATE_LOGGER(id)                                                                                              \
-    albc::diagnostics::Logger ALBC_LOG_UNIQUE(logr, id);                                                               \
-    ALBC_LOG_UNIQUE(logr, id)
-
-#define GET_LOGGER_WITH_LEVEL(level) CREATE_LOGGER(__COUNTER__)(level)
-#define LOG_D S_LOG(GET_LOGGER_WITH_LEVEL(albc::diagnostics::LogLevel::DEBUG))
-#define LOG_I S_LOG(GET_LOGGER_WITH_LEVEL(albc::diagnostics::LogLevel::INFO))
-#define LOG_W S_LOG(GET_LOGGER_WITH_LEVEL(albc::diagnostics::LogLevel::WARN))
-#define LOG_E S_LOG(GET_LOGGER_WITH_LEVEL(albc::diagnostics::LogLevel::ERROR))
-#define LOG(level) S_LOG(GET_LOGGER_WITH_LEVEL(level))
+#define LOG(level, ...) S_LOG(albc::diagnostics::Logger()(level), __VA_ARGS__)
+#define LOG_D(...) LOG(albc::diagnostics::LogLevel::DEBUG, __VA_ARGS__)
+#define LOG_I(...) LOG(albc::diagnostics::LogLevel::INFO, __VA_ARGS__)
+#define LOG_W(...) LOG(albc::diagnostics::LogLevel::WARN, __VA_ARGS__)
+#define LOG_E(...) LOG(albc::diagnostics::LogLevel::ERROR, __VA_ARGS__)
 
 namespace albc::diagnostics
 {
 static constexpr std::string_view kBarSep = "|";
 static constexpr std::string_view kColonSep = ":";
+
+template <typename Out, typename... Args> auto VariantPut(Out &os, Args &&...args) -> decltype((os << ... << args))
+{
+    return (os << ... << args);
+}
 
 enum class LogLevel
 {
@@ -57,6 +58,9 @@ enum class LogLevel
 class GlobalLogConfig
 {
   public:
+    using LogCallback = void (*)(const char *);
+    using FlushLogCallback = void (*)();
+
     static LogLevel GetLogLevel()
     {
         return log_level_;
@@ -73,22 +77,78 @@ class GlobalLogConfig
         return log_level_ <= level;
     }
 
+    static void SetLogCallback(LogCallback callback)
+    {
+        std::lock_guard lock(mutex_);
+        log_callback_ = callback;
+    }
+
+    static LogCallback GetLogCallback()
+    {
+        return log_callback_;
+    }
+
+    static void SetFlushLogCallback(FlushLogCallback callback)
+    {
+        std::lock_guard lock(mutex_);
+        flush_log_callback_ = callback;
+    }
+
+    static FlushLogCallback GetFlushLogCallback()
+    {
+        return flush_log_callback_;
+    }
+
   private:
     inline static LogLevel log_level_;
     inline static std::mutex mutex_;
+    inline static LogCallback log_callback_;
+    inline static FlushLogCallback flush_log_callback_;
 };
 
-class ThreadedConsoleLogger
+struct DefaultLogPrinter
+{
+    static void Print(string content)
+    {
+        auto global_log_cb = GlobalLogConfig::GetLogCallback();
+        if (global_log_cb)
+        {
+            global_log_cb(content.c_str());
+            return;
+        }
+
+        std::cout << content;
+        if (content.back() != '\n')
+        {
+            std::cout << '\n';
+        }
+    }
+
+    static void Flush()
+    {
+        auto global_flush_log_cb = GlobalLogConfig::GetFlushLogCallback();
+        if (global_flush_log_cb)
+        {
+            global_flush_log_cb();
+            return;
+        }
+
+        std::cout.flush();
+    }
+};
+
+template <typename TPrinter = DefaultLogPrinter> class ThreadedConsoleLogger
 {
   public:
     ThreadedConsoleLogger() : thread_([this]() { MainLoop(); }), queue_(4096)
-    { }
+    {
+    }
 
     ~ThreadedConsoleLogger()
     {
         running_ = false;
         thread_.join();
-        std::cout << std::flush;
+        printer_.Flush();
     }
 
     void Log(const LogLevel level, string &&str)
@@ -111,7 +171,7 @@ class ThreadedConsoleLogger
 #endif
         }
     }
-    
+
     void Log(const LogLevel level, const string &str)
     {
         Log(level, string(str));
@@ -119,13 +179,19 @@ class ThreadedConsoleLogger
 
     void Flush()
     {
-        std::cout.flush();
+        string str;
+        while (queue_.try_dequeue(str))
+        {
+            Print(str);
+        }
+        printer_.Flush();
     }
 
   private:
     std::thread thread_;
     bool running_ = true;
     moodycamel::BlockingConcurrentQueue<string> queue_;
+    TPrinter printer_;
 
     void MainLoop()
     {
@@ -133,34 +199,35 @@ class ThreadedConsoleLogger
         std::cout << "Warning: AddressSanitizer detected, threaded logging disabled." << std::endl;
         return;
 #endif
-        
+
         while (true)
         {
             constexpr size_t bulk_reserve_size = 1024;
             string msg_list[bulk_reserve_size];
-            const size_t bulk_size = queue_.wait_dequeue_bulk_timed(msg_list, bulk_reserve_size, std::chrono::milliseconds(10));
+            const size_t bulk_size =
+                queue_.wait_dequeue_bulk_timed(msg_list, bulk_reserve_size, std::chrono::milliseconds(10));
 
             for (size_t i = 0; i < bulk_size; ++i)
             {
                 const auto &msg = msg_list[i];
-                std::cout << msg;
-                // auto add new line
-                if (const auto &back = msg.back(); back != '\n')
-                {
-                    std::cout << '\n';
-                }
+                Print(msg);
             }
 
             if (!running_)
             {
-                std::cout << std::flush;
+                printer_.Flush();
                 break;
             }
         }
     }
+
+    static void Print(const string &str)
+    {
+        TPrinter::Print(str);
+    }
 };
 
-using SingletonLogger = LazySingleton<ThreadedConsoleLogger>;
+using SingletonLogger = LazySingleton<ThreadedConsoleLogger<DefaultLogPrinter>>;
 
 class Logger
 {
@@ -168,7 +235,7 @@ class Logger
     typedef std::ostream &(*ManipFn)(std::ostream &);
     typedef std::ios_base &(*FlagsFn)(std::ios_base &);
 
-    Logger() : m_logLevel(LogLevel::INFO)
+    Logger()
     {
     }
 
@@ -204,7 +271,7 @@ class Logger
     void Flush()
     {
         m_has_flushed = true;
-        
+
         /*
           m_stream.str() has your full message here.
           Good place to prepend time, log-level.
@@ -212,27 +279,27 @@ class Logger
         */
         if (GlobalLogConfig::CanLog(m_logLevel))
         {
-            SingletonLogger::instance()->Log(
-                m_logLevel, std::move(
-                    string("ALBC|")
-                    .append(GetReadableTime())
-                    .append("|")
-                    .append(get_current_thread_id())
-                    .append(GetLogLevelTag(m_logLevel))
-                    .append(m_stream.str())));
+            SingletonLogger::instance()->Log(m_logLevel, std::move(string("ALBC|")
+                                                                       .append(GetReadableTime())
+                                                                       .append("|")
+                                                                       .append(get_current_thread_id())
+                                                                       .append(GetLogLevelTag(m_logLevel))
+                                                                       .append(m_stream.str())));
         }
 
         m_stream.str(std::string());
         m_stream.clear();
     }
 
-    ~Logger() {
-        if (!m_has_flushed) Flush();
+    ~Logger()
+    {
+        if (!m_has_flushed)
+            Flush();
     }
 
   private:
     std::stringstream m_stream;
-    LogLevel m_logLevel;
+    LogLevel m_logLevel = LogLevel::INFO;
     bool m_has_flushed = false;
 
     // get log level as string
@@ -252,14 +319,6 @@ class Logger
         ALBC_UNREACHABLE();
     }
 };
-
-using std::cout;
-using std::endl;
-using std::flush;
-using std::resetiosflags;
-using std::setfill;
-using std::setiosflags;
-using std::setw;
 } // namespace albc::diagnostics
 
 using namespace albc::diagnostics;
