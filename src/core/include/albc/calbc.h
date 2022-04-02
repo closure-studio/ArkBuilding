@@ -7,7 +7,13 @@
     typedef struct name name;
 
 #define CALBC_THROWS AlbcException** e_ptr
+
+#ifdef _WIN32
 #define CALBC_API(ret) ret __cdecl
+#else
+#define CALBC_API(ret) ret
+#endif
+
 #ifdef __cplusplus
 extern "C"
 {

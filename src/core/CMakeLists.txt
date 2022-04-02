@@ -8,7 +8,7 @@ function(add_albc_lib name type)
         target_link_options(${name} PRIVATE -Wl,--output-def,lib${name}.def)
     endif()
 
-    target_link_options(${name} PRIVATE -Wl,--exclude-libs=ALL,-static) # only public API
+    target_link_options(${name} PRIVATE -Wl,--exclude-libs=ALL) # only public API
 
     target_include_directories(${name} PUBLIC include)
 
@@ -17,6 +17,7 @@ function(add_albc_lib name type)
 
     target_compile_options(${name}
         PRIVATE
+            -static
             -Wall
             -Wextra
             -Wno-unknown-pragmas
