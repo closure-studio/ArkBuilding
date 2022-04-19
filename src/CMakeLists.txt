@@ -6,3 +6,4 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 add_subdirectory(core)
 add_subdirectory(cli)
+add_subdirectory(examples)

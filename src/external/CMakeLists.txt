@@ -1,9 +1,11 @@
-include(ExternalProject)
 project(albcexternals)
 
 set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_WARN_DEPRECATED OFF CACHE BOOL "" FORCE)
+
+# backward-cpp
+add_subdirectory(backward-cpp)
 
 # Cbc
 set(CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS} "-fPIC") # "dangerous relocation: unsupported relocation" building Cbc on ARM64
@@ -46,12 +48,6 @@ endforeach()
 message(STATUS "Coin libraries: ${COIN_LIBS}")
 message(STATUS "Coin include dirs: ${COIN_INCLUDE_DIRS}")
 
-set(ALBC_EXTERNAL_LIBS
-        ${COIN_LIBS})
-
-set(ALBC_EXTERNAL_INCLUDE_DIRS
-        ${COIN_INCLUDE_DIRS})
-
 aux_source_directory(. ALBC_EXTERNAL_SRC_FILES)
 
 add_library(albcexternals 
@@ -59,14 +55,14 @@ add_library(albcexternals
         ${ALBC_EXTERNAL_SRC_FILES})
 
 target_link_libraries(albcexternals 
-        PUBLIC 
-        ${ALBC_EXTERNAL_LIBS})
+        PUBLIC
+        ${COIN_LIBS})
 
 target_include_directories(albcexternals 
-        PUBLIC 
-        ${ALBC_EXTERNAL_INCLUDE_DIRS} 
+        PUBLIC
+        ${COIN_INCLUDE_DIRS}
         include)
 
 target_compile_definitions(albcexternals 
         PUBLIC 
-        HAVE_CONFIG_H=1)
+        HAVE_CONFIG_H=1) # for Cbc

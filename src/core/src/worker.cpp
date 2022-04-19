@@ -1,10 +1,11 @@
 // ReSharper disable StringLiteralTypo
 #include "worker.h"
 #include "algorithm.h"
-#include "buff_def.h"
+#include "buff_map.h"
 #include "locale_util.h"
 #include "player_data_model.h"
 #include "time_util.h"
+#include "worker_params.h"
 #include <future>
 namespace albc::worker
 {
@@ -14,15 +15,15 @@ void launch_test(const Json::Value &player_data_json, const Json::Value &game_da
     switch (test_config.mode)
     {
     case ALBC_TEST_MODE_SEQUENTIAL:
-        albc::worker::run_sequential_test(player_data_json, game_data_json, test_config);
+        worker::run_sequential_test(player_data_json, game_data_json, test_config);
         break;
 
     case ALBC_TEST_MODE_PARALLEL:
-        albc::worker::run_parallel_test(player_data_json, game_data_json, test_config);
+        worker::run_parallel_test(player_data_json, game_data_json, test_config);
         break;
 
     case ALBC_TEST_MODE_ONCE:
-        albc::worker::test_once(player_data_json, game_data_json, test_config);
+        worker::test_once(player_data_json, game_data_json, test_config);
         break;
 
     default:
@@ -33,19 +34,21 @@ void launch_test(const Json::Value &player_data_json, const Json::Value &game_da
 void test_once(const Json::Value &player_data_json, const Json::Value &game_data_json,
                const AlbcTestConfig &test_config)
 {
-    std::shared_ptr<bm::BuildingData> building_data;
-    std::shared_ptr<PlayerDataModel> player_data;
+    std::shared_ptr<data::building::BuildingData> building_data;
+    std::shared_ptr<data::player::PlayerDataModel> player_data;
 
-    const auto orig_log_level = GlobalLogConfig::GetLogLevel();
-    make_defer([orig_log_level]() { GlobalLogConfig::SetLogLevel(orig_log_level); });
-    GlobalLogConfig::SetLogLevel(static_cast<diagnostics::LogLevel>(test_config.base_parameters.level));
+    const auto orig_log_level = util::GlobalLogConfig::GetLogLevel();
+    util::make_defer([orig_log_level]() { util::GlobalLogConfig::SetLogLevel(orig_log_level); });
+    util::GlobalLogConfig::SetLogLevel(static_cast<util::LogLevel>(test_config.base_parameters.level));
+
+    const auto buff_map = model::buff::BuffMap::instance();
 
     {
         auto sc = SCOPE_TIMER_WITH_TRACE("Data feeding");
         LOG_I("Parsing building json object.");
         try
         {
-            building_data = std::make_shared<bm::BuildingData>(game_data_json);
+            building_data = std::make_shared<data::building::BuildingData>(game_data_json);
             LOG_I("Loaded ", building_data->chars.size(), " building character definitions.");
             LOG_I("Loaded ", building_data->buffs.size(), " building buff definitions.");
         }
@@ -58,12 +61,12 @@ void test_once(const Json::Value &player_data_json, const Json::Value &game_data
         int unsupported_buff_cnt = 0;
         for (const auto &[buff_id, buff] : building_data->buffs)
         {
-            if (BuffMap::instance()->count(buff_id) <= 0)
+            if (buff_map->count(buff_id) <= 0)
             {
                 if (test_config.show_all_ops)
                 {
-                    VariantPut(std::cout, "\"", buff->buff_id, "\": ", toOSCharset(buff->buff_name), ": ",
-                               toOSCharset(xml::strip_xml_tags(buff->description)));
+                    util::VariantPut(std::cout, "\"", buff->buff_id, "\": ", buff->buff_name, ": ",
+                               xml::strip_xml_tags(buff->description));
                 }
                 ++unsupported_buff_cnt;
             }
@@ -77,7 +80,7 @@ void test_once(const Json::Value &player_data_json, const Json::Value &game_data
         LOG_I("Parsing player json object.");
         try
         {
-            player_data = std::make_shared<PlayerDataModel>(player_data_json);
+            player_data = std::make_shared<data::player::PlayerDataModel>(player_data_json);
             LOG_I("Added ", player_data->troop.chars.size(), " existing character instance");
             LOG_I("Added ", player_data->building.player_building_room.manufacture.size(), " factories.");
             LOG_I("Added ", player_data->building.player_building_room.trading.size(), " trading posts.");
@@ -90,18 +93,21 @@ void test_once(const Json::Value &player_data_json, const Json::Value &game_data
         }
     }
 
-    // GenTestModePlayerData(*player_data, *building_data);
+    GenTestModePlayerData(*player_data, *building_data);
     WorkerParams params(*player_data, *building_data);
     const auto sc = SCOPE_TIMER_WITH_TRACE("Solving");
-    Vector<RoomModel *> all_rooms;
-    const auto &manu_rooms = get_raw_ptr_vector(params.GetRoomsOfType(bm::RoomType::MANUFACTURE));
-    const auto &trade_tooms = get_raw_ptr_vector(params.GetRoomsOfType(bm::RoomType::TRADING));
-    all_rooms.insert(all_rooms.end(), manu_rooms.begin(), manu_rooms.end());
-    all_rooms.insert(all_rooms.end(), trade_tooms.begin(), trade_tooms.end());
+    Vector<model::buff::RoomModel *> all_rooms;
+    const auto &manu_rooms = mem::unwrap_ptr_vector(params.GetRoomsOfType(data::building::RoomType::MANUFACTURE));
+    const auto &trade_rooms = mem::unwrap_ptr_vector(params.GetRoomsOfType(data::building::RoomType::TRADING));
 
-    MultiRoomIntegerProgramming alg_all(all_rooms, params.GetOperators(),
+    all_rooms.insert(all_rooms.end(), manu_rooms.begin(), manu_rooms.end());
+    all_rooms.insert(all_rooms.end(), trade_rooms.begin(), trade_rooms.end());
+
+    algorithm::MultiRoomIntegerProgramming alg_all(all_rooms, params.GetOperators(),
                                         test_config.base_parameters.solver_parameters);
-    alg_all.Run();
+
+    algorithm::AlgorithmResult result;
+    alg_all.Run(result);
 }
 
 void run_parallel_test(const Json::Value &player_data_json, const Json::Value &game_data_json,

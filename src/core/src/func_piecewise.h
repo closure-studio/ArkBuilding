@@ -4,9 +4,9 @@
 #include "primitive_types.h"
 #include "util.h"
 
-namespace albc
+namespace albc::model::buff
 {
-	struct PiecewiseDef
+	struct alignas(64) PiecewiseDef
 	{ 
 		// 该结构体表示一个分段函数的段
 		// 段的定义是：
@@ -30,27 +30,30 @@ namespace albc
 
 		[[nodiscard]] constexpr auto IsEmpty() const -> bool
 		{
-			return fp_eq(base_delta, 0.) && fp_eq(acc_delta, 0.) && fp_eq(mul, 1.) && fp_eq(extra_delta, 0.);
+			return util::fp_eq(base_delta, 0.)
+                   && util::fp_eq(acc_delta, 0.)
+                   && util::fp_eq(mul, 1.)
+                   && util::fp_eq(extra_delta, 0.);
 		}
 	};
 
-	struct PiecewiseIndex
+	struct alignas(64) PiecewiseIndex
 	{
 		double ts = 0.;
 		PiecewiseDef def;
 	};
 
 	template <UInt32 N>
-	struct PiecewiseMap
+	struct alignas(64) PiecewiseMap
 	{
 		// 土制前向链表，表示函数中的所有段
-		struct Forward
+		struct alignas(64) Forward
 		{
 			PiecewiseIndex data{INFINITY, {0., 0., 1., 0.}};
 			Forward *next = nullptr;
 		};
 
-		struct Iterator
+		struct alignas(64) Iterator
 		{
 			explicit Iterator() : ptr()
 			{
@@ -150,7 +153,7 @@ namespace albc
 			for (; it.HasNext(); ++it)
 			{
                 cur_seg = it.ptr;
-                if (fp_eq(cur_seg->data.ts, ts))
+                if (util::fp_eq(cur_seg->data.ts, ts))
 				{
                     do_append = false;
                     break;

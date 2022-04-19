@@ -1,7 +1,7 @@
 #pragma once
 #include "json_util.h"
 
-namespace albc
+namespace albc::data
 {
 	enum class EvolvePhase
 	{
@@ -14,17 +14,19 @@ namespace albc
 
 	struct UnlockCondition
 	{
-		EvolvePhase phase;
-		int level;
+		EvolvePhase phase = EvolvePhase::PHASE_0;
+		int level = 0;
 
 		explicit UnlockCondition(const Json::Value& json) :
-			phase(json_val_as_enum<EvolvePhase>(json["phase"])),
+			phase(util::json_val_as_enum<EvolvePhase>(json["phase"])),
 			level(json["level"].asInt())
 		{ }
 
-		[[nodiscard]] constexpr bool Check(const EvolvePhase phase, const int level) const
+        UnlockCondition() = default;
+
+		[[nodiscard]] constexpr bool Check(const EvolvePhase phase_val, const int level_val) const
 		{
-			return phase >= this->phase && level >= this->level;
+			return phase_val >= this->phase && level_val >= this->level;
 		}
 	};
 }

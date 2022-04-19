@@ -1,13 +1,22 @@
 // ReSharper disable CppClangTidyCppcoreguidelinesMacroUsage
 #pragma once
-#include "blockingconcurrentqueue.h"
 #include "util.h"
-#include <condition_variable>
+#include "locale_util.h"
 #include <iomanip>
 #include <iostream>
 #include <mutex>
 #include <queue>
 #include <sstream>
+#include <functional>
+
+#if (!defined(ALBC_HAVE_THREADS) || defined(ALBC_CONFIG_ASAN)) && !defined(ALBC_DISABLE_THREADED_LOGGING)
+#define ALBC_DISABLE_THREADED_LOGGING // AddressSanitizer causes segfault on concurrent queue
+#endif
+
+#ifndef ALBC_DISABLE_THREADED_LOGGING
+#include <condition_variable>
+#include "blockingconcurrentqueue.h"
+#endif
 
 #define ALBC_LOG_UNIQUE2(name, id) $##name##$##id
 #define ALBC_LOG_UNIQUE(name, id) ALBC_LOG_UNIQUE2(name, id)
@@ -16,28 +25,28 @@
 
 #define ALBC_LOG_COMPILE_TIME_BUILD_TAG(name, id)                                                                      \
     ALBC_LOG_CONSTEXPR_STRING_VIEW(ALBC_LOG_UNIQUE(filename, id), __FILENAME__)                                        \
-    ALBC_LOG_CONSTEXPR_STRING_VIEW(ALBC_LOG_UNIQUE(funcname, id), __FUNCTION__)                                        \
-    ALBC_LOG_CONSTEXPR_STRING_VIEW(ALBC_LOG_UNIQUE(line, id), STRINGIFY(__LINE__))                 \
+    ALBC_LOG_CONSTEXPR_STRING_VIEW(ALBC_LOG_UNIQUE(funcname, id), __func__)                                        \
+    ALBC_LOG_CONSTEXPR_STRING_VIEW(ALBC_LOG_UNIQUE(line, id), STRINGIFY(__LINE__))                                     \
     static constexpr std::string_view ALBC_LOG_UNIQUE(name, id) =                                                      \
-        albc::util::join_v<ALBC_LOG_UNIQUE(filename, id), albc::diagnostics::kColonSep, ALBC_LOG_UNIQUE(funcname, id), \
-                           albc::diagnostics::kColonSep, ALBC_LOG_UNIQUE(line, id), albc::diagnostics::kBarSep>;
+        albc::util::join_v<ALBC_LOG_UNIQUE(filename, id), albc::util::kColonSep, ALBC_LOG_UNIQUE(funcname, id), \
+                           albc::util::kColonSep, ALBC_LOG_UNIQUE(line, id), albc::util::kBarSep>;
 
 #define ALBC_LOG_DO_S_LOG(id, target, ...)                                                                             \
     do                                                                                                                 \
     {                                                                                                                  \
         ALBC_LOG_COMPILE_TIME_BUILD_TAG(loc, id)                                                                       \
-        albc::diagnostics::VariantPut(target, ALBC_LOG_UNIQUE(loc, id), __VA_ARGS__) << std::endl;                     \
+        albc::util::VariantPut(target, ALBC_LOG_UNIQUE(loc, id), __VA_ARGS__) << std::endl;                     \
     } while (false)
 
 #define S_LOG(target, ...) ALBC_LOG_DO_S_LOG(__COUNTER__, target, __VA_ARGS__)
 
-#define LOG(level, ...) S_LOG(albc::diagnostics::Logger()(level), __VA_ARGS__)
-#define LOG_D(...) LOG(albc::diagnostics::LogLevel::DEBUG, __VA_ARGS__)
-#define LOG_I(...) LOG(albc::diagnostics::LogLevel::INFO, __VA_ARGS__)
-#define LOG_W(...) LOG(albc::diagnostics::LogLevel::WARN, __VA_ARGS__)
-#define LOG_E(...) LOG(albc::diagnostics::LogLevel::ERROR, __VA_ARGS__)
+#define LOG(level, ...) S_LOG(albc::util::Logger()(level), __VA_ARGS__)
+#define LOG_D(...) LOG(albc::util::LogLevel::DEBUG, __VA_ARGS__)
+#define LOG_I(...) LOG(albc::util::LogLevel::INFO, __VA_ARGS__)
+#define LOG_W(...) LOG(albc::util::LogLevel::WARN, __VA_ARGS__)
+#define LOG_E(...) LOG(albc::util::LogLevel::ERROR, __VA_ARGS__)
 
-namespace albc::diagnostics
+namespace albc::util
 {
 static constexpr std::string_view kBarSep = "|";
 static constexpr std::string_view kColonSep = ":";
@@ -49,10 +58,12 @@ template <typename Out, typename... Args> auto VariantPut(Out &os, Args &&...arg
 
 enum class LogLevel
 {
-    DEBUG = 0,
-    INFO = 1,
-    WARN = 2,
-    ERROR = 3
+    ALL = 0,
+    DEBUG = 1,
+    INFO = 2,
+    WARN = 3,
+    ERROR = 4,
+    NONE = 5
 };
 
 class GlobalLogConfig
@@ -108,7 +119,7 @@ class GlobalLogConfig
 
 struct DefaultLogPrinter
 {
-    static void Print(string content)
+    static void Print(std::string content)
     {
         auto global_log_cb = GlobalLogConfig::GetLogCallback();
         if (global_log_cb)
@@ -140,22 +151,20 @@ struct DefaultLogPrinter
 template <typename TPrinter = DefaultLogPrinter> class ThreadedConsoleLogger
 {
   public:
-    ThreadedConsoleLogger() : thread_([this]() { MainLoop(); }), queue_(4096)
-    {
-    }
-
     ~ThreadedConsoleLogger()
     {
+        Flush();
+#ifndef ALBC_DISABLE_THREADED_LOGGING
         running_ = false;
         thread_.join();
-        printer_.Flush();
+#endif
     }
 
-    void Log(const LogLevel level, string &&str)
+    void Log(const LogLevel level, std::string &&str)
     {
         if (GlobalLogConfig::CanLog(level))
         {
-#ifndef ALBC_CONFIG_ASAN // AddressSanitizer causes segfault on concurrent queue
+#ifndef ALBC_DISABLE_THREADED_LOGGING
             if (!queue_.enqueue(std::move(str)))
             {
                 std::cerr << "Failed to enqueue log message!" << std::endl;
@@ -163,47 +172,42 @@ template <typename TPrinter = DefaultLogPrinter> class ThreadedConsoleLogger
             }
 #else
             // log directly
-            std::cout << str;
-            if (str.back() != '\n')
-            {
-                std::cout << '\n';
-            }
+            Print(str);
 #endif
         }
     }
 
-    void Log(const LogLevel level, const string &str)
+    void Log(const LogLevel level, const std::string &str)
     {
-        Log(level, string(str));
+        Log(level, std::string(str));
     }
 
     void Flush()
     {
-        string str;
+#ifndef ALBC_DISABLE_THREADED_LOGGING
+        std::string str;
         while (queue_.try_dequeue(str))
         {
             Print(str);
         }
-        printer_.Flush();
+#endif
+        TPrinter::Flush();
     }
 
   private:
-    std::thread thread_;
+#ifndef ALBC_DISABLE_THREADED_LOGGING
+    moodycamel::BlockingConcurrentQueue<std::string> queue_ { 4096 };
+    std::thread thread_ { std::bind(&ThreadedConsoleLogger::MainLoop, this) };
+#endif
     bool running_ = true;
-    moodycamel::BlockingConcurrentQueue<string> queue_;
-    TPrinter printer_;
 
+#ifndef ALBC_DISABLE_THREADED_LOGGING
     void MainLoop()
     {
-#ifdef ALBC_CONFIG_ASAN
-        std::cout << "Warning: AddressSanitizer detected, threaded logging disabled." << std::endl;
-        return;
-#endif
-
         while (true)
         {
-            constexpr size_t bulk_reserve_size = 1024;
-            string msg_list[bulk_reserve_size];
+            constexpr size_t bulk_reserve_size = 256;
+            std::string msg_list[bulk_reserve_size];
             const size_t bulk_size =
                 queue_.wait_dequeue_bulk_timed(msg_list, bulk_reserve_size, std::chrono::milliseconds(10));
 
@@ -215,19 +219,20 @@ template <typename TPrinter = DefaultLogPrinter> class ThreadedConsoleLogger
 
             if (!running_)
             {
-                printer_.Flush();
+                TPrinter::Flush();
                 break;
             }
         }
     }
+#endif
 
-    static void Print(const string &str)
+    static void Print(const std::string &str)
     {
-        TPrinter::Print(str);
+        TPrinter::Print(ToTargetLocale(str));
     }
 };
 
-using SingletonLogger = LazySingleton<ThreadedConsoleLogger<DefaultLogPrinter>>;
+using SingletonLogger = util::LazySingleton<ThreadedConsoleLogger<DefaultLogPrinter>>;
 
 class Logger
 {
@@ -235,9 +240,7 @@ class Logger
     typedef std::ostream &(*ManipFn)(std::ostream &);
     typedef std::ios_base &(*FlagsFn)(std::ios_base &);
 
-    Logger()
-    {
-    }
+    Logger() = default;
 
     template <class T> // int, double, strings, etc
     [[nodiscard]] Logger &operator<<(const T &output)
@@ -270,8 +273,6 @@ class Logger
 
     void Flush()
     {
-        m_has_flushed = true;
-
         /*
           m_stream.str() has your full message here.
           Good place to prepend time, log-level.
@@ -279,10 +280,10 @@ class Logger
         */
         if (GlobalLogConfig::CanLog(m_logLevel))
         {
-            SingletonLogger::instance()->Log(m_logLevel, std::move(string("ALBC|")
-                                                                       .append(GetReadableTime())
+            SingletonLogger::instance()->Log(m_logLevel, std::move(std::string("ALBC|")
+                                                                       .append(util::GetReadableTime())
                                                                        .append("|")
-                                                                       .append(get_current_thread_id())
+                                                                       .append(util::get_current_thread_id())
                                                                        .append(GetLogLevelTag(m_logLevel))
                                                                        .append(m_stream.str())));
         }
@@ -291,34 +292,29 @@ class Logger
         m_stream.clear();
     }
 
-    ~Logger()
-    {
-        if (!m_has_flushed)
-            Flush();
-    }
-
   private:
     std::stringstream m_stream;
     LogLevel m_logLevel = LogLevel::INFO;
-    bool m_has_flushed = false;
 
-    // get log level as string
-    static constexpr string_view GetLogLevelTag(const LogLevel e)
+    // get log level as std::string
+    static constexpr std::string_view GetLogLevelTag(const LogLevel e)
     {
         switch (e)
         {
+        case LogLevel::ALL:
+            return "|ALL  |";
+        case LogLevel::DEBUG:
+            return "|DEBUG|";
         case LogLevel::INFO:
             return "|INFO |";
         case LogLevel::WARN:
             return "|WARN |";
         case LogLevel::ERROR:
             return "|ERROR|";
-        case LogLevel::DEBUG:
-            return "|DEBUG|";
+        case LogLevel::NONE:
+            return "|NONE |";
         }
         ALBC_UNREACHABLE();
     }
 };
 } // namespace albc::diagnostics
-
-using namespace albc::diagnostics;

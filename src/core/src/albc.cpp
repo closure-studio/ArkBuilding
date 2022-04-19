@@ -1,31 +1,53 @@
+#define ALBC_IS_INTERNAL
 #include "albc/albc.h"
+#include "api_impl.h"
 
 #include "albc_config.h"
-#include "api_utils.h"
+#include "api_util.h"
+#include "game_data_tables.h"
 #include "log_util.h"
+#include "mem_util.h"
 #include "primitive_types.h"
-#include "worker.h"
+
+#include <cstdarg>
 #include <memory>
 
 #pragma clang diagnostic push
 #pragma ide diagnostic ignored "OCUnusedGlobalDeclarationInspection"
 
-static std::shared_ptr<albc::bm::BuildingData> global_building_data;
-static std::mutex global_building_data_mutex;
+//#define ALBC_MEMORY_DEBUG_ENABLED
+
 namespace albc
-#ifndef ALBC_CONFIG_MSVC
-    ALBC_PUBLIC // set up namespace-wide __attribute__((visibility("default"))), but not for MSVC
+    ALBC_PUBLIC_NAMESPACE
+{
+ALBC_API(void *) malloc(std::size_t size) noexcept
+{
+    auto ret = std::malloc(size);
+#ifdef ALBC_MEMORY_DEBUG_ENABLED
+    LOG_D("malloc(", size, ") = ", ret);
 #endif
+    return ret;
+}
+ALBC_API(void) free(void *ptr) noexcept
 {
-struct String::Impl : public string
+    std::free(ptr);
+#ifdef ALBC_MEMORY_DEBUG_ENABLED
+    LOG_D("free(", ptr, ")");
+#endif
+}
+void *realloc(void *ptr, std::size_t size) noexcept
 {
-    using string::string;
-};
+    auto ret = std::realloc(ptr, size);
+#ifdef ALBC_MEMORY_DEBUG_ENABLED
+    LOG_D("realloc(", ptr, ", ", size, ") = ", ret);
+#endif
+    return ret;
+}
 String::String() noexcept
 {
     try
     {
-        impl_ = new Impl();
+        impl_ = new (std::nothrow) Impl();
     }
     ALBC_API_CATCH_AND_TRANSLATE_EXCEPTION(nullptr,
                                            "calling API") // __FUNCTION__ adn __LINE__ is included in LOG_E macro
@@ -34,7 +56,7 @@ String::String(const char *str) noexcept
 {
     try
     {
-        impl_ = new Impl(str);
+        impl_ = new (std::nothrow) Impl(str);
     }
     ALBC_API_CATCH_AND_TRANSLATE_EXCEPTION(nullptr, "calling API")
 }
@@ -42,7 +64,7 @@ String::String(const String &str) noexcept
 {
     try
     {
-        impl_ = new Impl(str.impl_->c_str());
+        impl_ = new (std::nothrow) Impl(*str.impl_);
     }
     ALBC_API_CATCH_AND_TRANSLATE_EXCEPTION(nullptr, "calling API")
 }
@@ -105,11 +127,11 @@ size_t String::size() const noexcept
     return impl_->size();
 }
 
-void Log(AlbcLogLevel level, const char *message, AlbcException **e_ptr) noexcept
+void DoLog(AlbcLogLevel level, const char *message, AlbcException **e_ptr) noexcept
 {
     try
     {
-        LOG(static_cast<LogLevel>(level), message);
+        LOG(static_cast<util::LogLevel>(level), message);
     }
     ALBC_API_CATCH_AND_TRANSLATE_EXCEPTION(e_ptr, "calling API")
 }
@@ -117,7 +139,7 @@ void SetLogLevel(AlbcLogLevel level, AlbcException **e_ptr) noexcept
 {
     try
     {
-        GlobalLogConfig::SetLogLevel(static_cast<LogLevel>(level));
+        util::GlobalLogConfig::SetLogLevel(static_cast<util::LogLevel>(level));
     }
     ALBC_API_CATCH_AND_TRANSLATE_EXCEPTION(e_ptr, "calling API")
 }
@@ -125,23 +147,23 @@ void FlushLog(AlbcException **e_ptr) noexcept
 {
     try
     {
-        SingletonLogger::instance()->Flush();
+        util::SingletonLogger::instance()->Flush();
     }
     ALBC_API_CATCH_AND_TRANSLATE_EXCEPTION(e_ptr, "calling API")
 }
-void SetLogCallback(AlbcLogCallback callback, AlbcException **e_ptr) noexcept
+void SetLogHandler(AlbcLogHandler handler, AlbcException **e_ptr) noexcept
 {
     try
     {
-        GlobalLogConfig::SetLogCallback(callback);
+        util::GlobalLogConfig::SetLogCallback(handler);
     }
     ALBC_API_CATCH_AND_TRANSLATE_EXCEPTION(e_ptr, "calling API")
 }
-void SetFlushLogCallback(AlbcFlushLogCallback callback, AlbcException **e_ptr) noexcept
+void SetFlushLogHandler(AlbcFlushLogHandler handler, AlbcException **e_ptr) noexcept
 {
     try
     {
-        GlobalLogConfig::SetFlushLogCallback(callback);
+        util::GlobalLogConfig::SetFlushLogCallback(handler);
     }
     ALBC_API_CATCH_AND_TRANSLATE_EXCEPTION(e_ptr, "calling API")
 }
@@ -152,7 +174,7 @@ AlbcLogLevel ParseLogLevel(const char *level, AlbcLogLevel default_level, AlbcEx
         std::string level_str(level);
         std::transform(level_str.begin(), level_str.end(), level_str.begin(), ::toupper);
         return static_cast<AlbcLogLevel>(
-            albc::util::parse_enum_string(level, static_cast<albc::diagnostics::LogLevel>(default_level)));
+            albc::util::parse_enum_string(level_str, static_cast<albc::util::LogLevel>(default_level)));
     }
     ALBC_API_CATCH_AND_TRANSLATE_EXCEPTION(e_ptr, "calling API")
     return default_level;
@@ -164,23 +186,34 @@ AlbcTestMode ParseTestMode(const char *mode, AlbcTestMode default_mode, AlbcExce
         std::string mode_str(mode);
         std::transform(mode_str.begin(), mode_str.end(), mode_str.begin(), ::toupper);
         return static_cast<AlbcTestMode>(
-            albc::util::parse_enum_string(mode, static_cast<albc::worker::TestMode>(default_mode)));
+            albc::util::parse_enum_string(mode_str, static_cast<albc::worker::TestMode>(default_mode)));
     }
     ALBC_API_CATCH_AND_TRANSLATE_EXCEPTION(e_ptr, "calling API")
     return default_mode;
 }
-bool SetGlobalBuildingData(const char *json, AlbcException **e_ptr) noexcept
+bool SetGlobalBuildingDataInternal(const Json::Value &json)
+{
+    auto bd_ptr = mem::make_shared_nothrow<data::building::BuildingData>(json);
+    global_building_data.swap(bd_ptr);
+    data::game::SkillLookupTable::Init(*global_building_data);
+
+    LOG_I("Successfully set global building data.");
+    return true;
+}
+
+bool InitBuildingDataFromJson(const char *json, AlbcException **e_ptr) noexcept
 {
     try
     {
         std::lock_guard<std::mutex> lock(global_building_data_mutex);
-        auto json_obj = read_json_from_char_array(json);
+        auto json_obj = util::read_json_from_char_array(json);
         if (json_obj.empty())
+        {
+            LOG_E("Failed to parse building data JSON.");
             return false;
+        }
 
-        auto bd_ptr = std::make_shared<bm::BuildingData>(json_obj);
-        global_building_data.swap(bd_ptr);
-        return true;
+        return SetGlobalBuildingDataInternal(json_obj);
     }
     ALBC_API_CATCH_AND_TRANSLATE_EXCEPTION(e_ptr, "calling API")
     return false;
@@ -191,39 +224,40 @@ void FreeException(AlbcException *e) noexcept
     {
         if (e)
         {
-            delete e->what;
+            delete[] e->what;
         }
         delete e;
     }
     ALBC_API_CATCH_AND_TRANSLATE_EXCEPTION(nullptr, "calling API")
 }
-bool ReadGlobalBuildingDataFromFile(const char *file_path, AlbcException **e_ptr) noexcept
+bool InitBuildingDataFromFile(const char *file_path, AlbcException **e_ptr) noexcept
 {
     try
     {
         std::lock_guard<std::mutex> lock(global_building_data_mutex);
-        auto json_obj = read_json_from_file(file_path);
+        auto json_obj = util::read_json_from_file(file_path);
         if (json_obj.empty())
+        {
+            LOG_E("Failed to read building json file: ", file_path);
             return false;
+        }
 
-        auto bd_ptr = std::make_shared<bm::BuildingData>(json_obj);
-        global_building_data.swap(bd_ptr);
-        return true;
+        return SetGlobalBuildingDataInternal(json_obj);
     }
     ALBC_API_CATCH_AND_TRANSLATE_EXCEPTION(e_ptr, "calling API")
     return false;
 }
 void RunTest(const char *game_data_json, const char *player_data_json, const AlbcTestConfig *config,
-              AlbcException **e_ptr)
+             AlbcException **e_ptr)
 {
     try
     {
-        const auto& player_data = read_json_from_char_array(player_data_json);
-        const auto& game_data = read_json_from_char_array(game_data_json);
+        const auto &player_data = util::read_json_from_char_array(player_data_json);
+        const auto &game_data = util::read_json_from_char_array(game_data_json);
 
-        auto log_level = static_cast<albc::diagnostics::LogLevel>(config->base_parameters.level);
+        auto log_level = static_cast<albc::util::LogLevel>(config->base_parameters.level);
 
-        LOG_I("Running test with log level: ", to_string(log_level));
+        LOG_I("Running test with log level: ", enum_to_string(log_level));
         {
             const auto sc = SCOPE_TIMER_WITH_TRACE("albc::worker::work");
             albc::worker::launch_test(player_data, game_data, *config);
@@ -232,56 +266,136 @@ void RunTest(const char *game_data_json, const char *player_data_json, const Alb
     }
     ALBC_API_CATCH_AND_TRANSLATE_EXCEPTION(e_ptr, "calling API")
 }
-class AlbcModel::Impl
+void NotifySkillLookupTableNotInitialized()
 {
-  private:
-    std::shared_ptr<bm::BuildingData> building_data_;
-    std::unique_ptr<PlayerDataModel> player_data_;
-    Impl(const Json::Value &game_data_json, const Json::Value &player_data_json)
-        : building_data_(std::make_shared<bm::BuildingData>(game_data_json)),
-          player_data_(std::make_unique<PlayerDataModel>(player_data_json))
+    LOG_E("Skill lookup table is not initialized. Please call InitBuildingDataFromJson()"
+          " or InitBuildingDataFromFile() first.");
+}
+ICharQuery *QueryChar(const char *skill_key, const char *char_key)
+{
+    try
     {
-    }
+        auto result = new CharQueryImpl;
+        std::string char_key_str;
+        if (char_key)
+            char_key_str.assign(char_key);
 
-  public:
-    Impl(const char *game_data_path, const char *player_data_path)
-        : Impl(read_json_from_file(game_data_path), read_json_from_file(player_data_path))
-    {
-    }
-
-    Impl()
-    {
-        if (!global_building_data)
+        if (data::game::SkillLookupTable::IsInitialized())
         {
-            throw std::invalid_argument("global building data is not set");
+            result->item = data::game::SkillLookupTable::instance()->QueryCharWithBuff(skill_key, char_key_str);
+        }
+        else
+        {
+            static std::once_flag flag;
+            std::call_once(flag, NotifySkillLookupTableNotInitialized);
         }
 
-        building_data_ = global_building_data;
-        player_data_ = std::make_unique<PlayerDataModel>();
+        return result;
     }
+    ALBC_API_CATCH_AND_TRANSLATE_EXCEPTION(nullptr, "calling API")
+    return nullptr;
+}
+ICharQuery *QueryChar(int n, const char* const* skill_keys, const char *char_key)
+{
+    try
+    {
+        auto result = new CharQueryImpl;
+        std::string char_key_str;
+        if (char_key)
+            char_key_str.assign(char_key);
 
-    [[nodiscard]] worker::WorkerParams CreateWorkerParams() const
-    {
-        return {*player_data_, *building_data_};
+        Vector<std::string> skill_key_strs;
+        for (int i = 0; i < n; ++i)
+        {
+            skill_key_strs.emplace_back(skill_keys[i]);
+        }
+
+        if (data::game::SkillLookupTable::IsInitialized())
+        {
+            result->item = data::game::SkillLookupTable::instance()->QueryCharWithBuffList(skill_key_strs, char_key_str);
+        }
+        else
+        {
+            static std::once_flag flag;
+            std::call_once(flag, NotifySkillLookupTableNotInitialized);
+        }
+
+        return result;
     }
-};
-AlbcModel::AlbcModel(const char *game_data_path, const char *player_data_path, AlbcException **e_ptr) noexcept
+    ALBC_API_CATCH_AND_TRANSLATE_EXCEPTION(nullptr, "calling API")
+    return nullptr;
+}
+bool InitCharacterTableInternal(const Json::Value &json_obj)
 {
     try
     {
-        impl_ = new Impl(game_data_path, player_data_path);
+        data::game::CharacterTable::Init(json_obj);
+
+        LOG_I("Character table initialized.");
+        return true;
     }
-    ALBC_API_CATCH_AND_TRANSLATE_EXCEPTION(e_ptr, "calling API")
+    catch (...)
+    {
+        LOG_E("Failed to initialize character table");
+        throw;
+    }
 }
-AlbcModel::AlbcModel(AlbcException **e_ptr) noexcept
+ALBC_API(bool) InitCharacterTableFromJson(const char *json, AlbcException **e_ptr) noexcept
 {
     try
     {
-        impl_ = new Impl();
+        const auto &json_obj = util::read_json_from_char_array(json);
+        if (json_obj.empty())
+        {
+            LOG_E("Failed to parse character table JSON.");
+            return false;
+        }
+
+        return InitCharacterTableInternal(json_obj);
     }
     ALBC_API_CATCH_AND_TRANSLATE_EXCEPTION(e_ptr, "calling API")
+    return false;
 }
-AlbcModel::~AlbcModel() noexcept
+ALBC_API(bool) InitCharacterTableFromFile(const char *file_path, AlbcException **e_ptr) noexcept
+{
+    try
+    {
+        std::lock_guard<std::mutex> lock(global_building_data_mutex);
+        auto json_obj = util::read_json_from_file(file_path);
+        if (json_obj.empty())
+        {
+            LOG_E("Failed to read character table JSON from file: ", file_path);
+            return false;
+        }
+
+        return InitCharacterTableInternal(json_obj);
+    }
+    ALBC_API_CATCH_AND_TRANSLATE_EXCEPTION(e_ptr, "calling API")
+    return false;
+}
+Model *Model::FromFile(const char *player_data_path, AlbcException **e_ptr) noexcept
+{
+    try
+    {
+        auto model = new Model();
+        model->impl_ = Impl::CreateFromFile(player_data_path);
+        return model;
+    }
+    ALBC_API_CATCH_AND_TRANSLATE_EXCEPTION(e_ptr, "calling API")
+    return nullptr;
+}
+Model *Model::FromJson(const char *player_data_json, AlbcException **e_ptr) noexcept
+{
+    try
+    {
+        auto model = new Model();
+        model->impl_ = Impl::CreateFromJson(player_data_json);
+        return model;
+    }
+    ALBC_API_CATCH_AND_TRANSLATE_EXCEPTION(e_ptr, "calling API")
+    return nullptr;
+}
+Model::~Model() noexcept
 {
     try
     {
@@ -289,6 +403,237 @@ AlbcModel::~AlbcModel() noexcept
     }
     ALBC_API_CATCH_AND_TRANSLATE_EXCEPTION(nullptr, "calling API")
 }
+ALBC_API(void) Model::AddCharacter(Character *character, AlbcException **e_ptr) noexcept
+{
+    try
+    {
+        impl_->AddCharacter(character);
+    }
+    ALBC_API_CATCH_AND_TRANSLATE_EXCEPTION(e_ptr, "calling API")
 }
+ALBC_API(void) Model::AddRoom(Room *room, AlbcException **e_ptr) noexcept
+{
+    try
+    {
+        impl_->AddRoom(room);
+    }
+    ALBC_API_CATCH_AND_TRANSLATE_EXCEPTION(e_ptr, "calling API")
+}
+ALBC_API(void) Model::RemoveCharacter(Character *character, AlbcException **e_ptr) noexcept
+{
+    try
+    {
+        impl_->RemoveCharacter(character);
+    }
+    ALBC_API_CATCH_AND_TRANSLATE_EXCEPTION(e_ptr, "calling API")
+}
+ALBC_API(void) Model::RemoveRoom(Room *room, AlbcException **e_ptr) noexcept
+{
+    try
+    {
+        impl_->RemoveRoom(room);
+    }
+    ALBC_API_CATCH_AND_TRANSLATE_EXCEPTION(e_ptr, "calling API")
+}
+ALBC_API(void) Model::SetDblParam(AlbcModelParamType type, double value, AlbcException **e_ptr) noexcept
+{
+    try
+    {
+        if (!magic_enum::enum_contains(type))
+        {
+            throw std::invalid_argument("invalid argument: type of val: " + std::to_string(static_cast<int>(type)));
+        }
+
+        util::write_attribute(impl_->model_parameters, type, value);
+    }
+    ALBC_API_CATCH_AND_TRANSLATE_EXCEPTION(e_ptr, "calling API")
+}
+IResult *Model::GetResult(AlbcException **e_ptr) noexcept
+{
+    try
+    {
+        return impl_->GetResult();
+    }
+    ALBC_API_CATCH_AND_TRANSLATE_EXCEPTION(e_ptr, "calling API")
+    return nullptr;
+}
+Model::Model(AlbcException **e_ptr) noexcept
+{
+    try
+    {
+        impl_ = new Impl();
+    }
+    ALBC_API_CATCH_AND_TRANSLATE_EXCEPTION(e_ptr, "calling API")
+}
+
+Character::Character(const char *identifier) noexcept
+{
+    try
+    {
+        impl_ = new (std::nothrow) Character::Impl();
+        if (impl_ && identifier)
+        {
+            impl_->identifier.assign(identifier);
+        }
+    }
+    ALBC_API_CATCH_AND_TRANSLATE_EXCEPTION(nullptr, "calling API")
+}
+Character::~Character() noexcept
+{
+    try
+    {
+        delete impl_;
+    }
+    ALBC_API_CATCH_AND_TRANSLATE_EXCEPTION(nullptr, "calling API")
+}
+Character *Character::FromGameDataId(const char *id) noexcept
+{
+    try
+    {
+        auto character = new (std::nothrow) Character(nullptr);
+        character->impl_->AssignGameDataId(id);
+        return character;
+    }
+    ALBC_API_CATCH_AND_TRANSLATE_EXCEPTION(nullptr, "calling API")
+    return nullptr;
+}
+Character *Character::FromName(const char *name) noexcept
+{
+    try
+    {
+        auto character = new (std::nothrow) Character(nullptr);
+        character->impl_->AssignName(name);
+        return character;
+    }
+    ALBC_API_CATCH_AND_TRANSLATE_EXCEPTION(nullptr, "calling API")
+    return nullptr;
+}
+ALBC_API(void) Character::SetLevel(int phase, int level, AlbcException **e_ptr) noexcept
+{
+    try
+    {
+        impl_->SetLevel(phase, level);
+    }
+    ALBC_API_CATCH_AND_TRANSLATE_EXCEPTION(e_ptr, "calling API")
+}
+ALBC_API(void) Character::AddSkillByName(const char *name, AlbcException **e_ptr) noexcept
+{
+    try
+    {
+        impl_->AddSkillByName(name);
+    }
+    ALBC_API_CATCH_AND_TRANSLATE_EXCEPTION(e_ptr, "calling API")
+}
+ALBC_API(void) Character::AddSkillByGameDataId(const char *id, AlbcException **e_ptr) noexcept
+{
+    try
+    {
+        impl_->AddSkillByGameDataId(id);
+    }
+    ALBC_API_CATCH_AND_TRANSLATE_EXCEPTION(e_ptr, "calling API")
+}
+ALBC_API(bool) Character::Prepare(AlbcException **e_ptr) noexcept
+{
+    try
+    {
+        return impl_->Prepare();
+    }
+    ALBC_API_CATCH_AND_TRANSLATE_EXCEPTION(e_ptr, "calling API")
+    return false;
+}
+ALBC_API(String) Character::GetIdentifier(AlbcException **e_ptr) const noexcept
+{
+    try
+    {
+        return String{impl_->identifier.c_str()};
+    }
+    ALBC_API_CATCH_AND_TRANSLATE_EXCEPTION(e_ptr, "calling API")
+    return String{};
+}
+ALBC_API(void) Character::SetMorale(double value, AlbcException **e_ptr) noexcept
+{
+    try
+    {
+        impl_->SetMorale(value);
+    }
+    ALBC_API_CATCH_AND_TRANSLATE_EXCEPTION(e_ptr, "calling API")
+}
+
+Room::Room(const char *identifier, AlbcRoomType type) noexcept
+{
+    try
+    {
+        impl_ = new (std::nothrow) Room::Impl();
+        if (impl_)
+        {
+            impl_->type = static_cast<data::building::RoomType>(type);
+            impl_->identifier.assign(identifier);
+        }
+    }
+    ALBC_API_CATCH_AND_TRANSLATE_EXCEPTION(nullptr, "calling API")
+}
+Room::~Room() noexcept
+{
+    try
+    {
+        delete impl_;
+    }
+    ALBC_API_CATCH_AND_TRANSLATE_EXCEPTION(nullptr, "calling API")
+}
+ALBC_API(void) Room::SetDblParam(AlbcRoomParamType type, double value, AlbcException **e_ptr) noexcept
+{
+    try
+    {
+        if (!magic_enum::enum_contains(type))
+        {
+            throw std::invalid_argument("invalid argument: type of val: " + std::to_string(static_cast<int>(type)));
+        }
+
+        util::write_attribute(impl_->params, type, value);
+    }
+    ALBC_API_CATCH_AND_TRANSLATE_EXCEPTION(e_ptr, "calling API")
+}
+ALBC_API(bool) Room::Prepare(AlbcException **e_ptr) noexcept
+{
+    try
+    {
+        return impl_->Prepare();
+    }
+    ALBC_API_CATCH_AND_TRANSLATE_EXCEPTION(e_ptr, "calling API")
+    return false;
+}
+ALBC_API(String) Room::GetIdentifier(AlbcException **e_ptr) const noexcept
+{
+    try
+    {
+        return String{impl_->identifier.c_str()};
+    }
+    ALBC_API_CATCH_AND_TRANSLATE_EXCEPTION(e_ptr, "calling API")
+    return String{};
+}
+
+ICollection<String> *GetInfo(AlbcException **e_ptr)
+{
+    try
+    {
+        return new ICollectionVectorImpl<String>({
+            String { R"({"test1":"ALBC","test2":"v0.0.1","test3":"ALBC"})" },
+            String { R"({"test4":"ALBC","test5":"v0.0.1","test6":"ALBC"})" },
+            String { R"({"test7":"ALBC","test8":"v0.0.1","test9":"ALBC"})" },
+            String { R"({"test10":"ALBC","test11":"v0.0.1","test12":"ALBC"})" },
+        });
+    }
+    ALBC_API_CATCH_AND_TRANSLATE_EXCEPTION(e_ptr, "calling API")
+    return nullptr;
+}
+ALBC_API(bool) SetGlobalLocale(const char *locale) noexcept
+{
+    if (!util::CheckTargetLocale(locale))
+        return false;
+
+    util::GlobalLocale::SetLocale(locale);
+    return true;
+}
+} // namespace albc
 
 #pragma clang diagnostic pop

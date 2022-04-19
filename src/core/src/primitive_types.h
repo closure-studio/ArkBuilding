@@ -14,7 +14,7 @@
 
 #include "albc_config.h"
 
-namespace albc::primitive_types
+namespace albc
 {
 
 template <typename T, typename TCreatePolicy> 
@@ -68,12 +68,6 @@ using Array = DefaultableType<std::array<T1, N>>;
 template <size_t N>
 using BitSet = DefaultableType<std::bitset<N>>;
 
-using string = std::string;
-
-using string_view = std::string_view;
-
-using wstring = std::wstring;
-
 using Int32 = int32_t;
 
 using UInt32 = uint32_t;
@@ -84,6 +78,4 @@ using UInt64 = uint64_t;
 
 using Exception = std::exception;
 } // namespace albc::primitive_types
-
-using namespace albc::primitive_types;
 #pragma clang diagnostic pop

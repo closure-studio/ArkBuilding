@@ -1,14 +1,12 @@
 #pragma once
-#include "buff_consts.h"
-#include "building_data_model.h"
-#include "json_util.h"
+
 #include "primitive_types.h"
+#include "building_data_model.h"
 
-#include <numeric>
-
-namespace albc
+namespace albc::data::game
 {
-template <typename TGet, typename TInit> class SingletonDB
+template <typename TGet, typename TInit, typename TStore = TGet>
+class SingletonDB
 {
   public:
     static std::shared_ptr<TGet> instance()
@@ -16,10 +14,11 @@ template <typename TGet, typename TInit> class SingletonDB
         return instance_;
     }
 
-    static void init(const TInit &init_data)
+    static void Init(const TInit &init_data)
     {
         std::scoped_lock lk(init_mutex_);
-        instance_ = std::shared_ptr<TGet>(new TGet(init_data));
+        std::shared_ptr<TGet> ptr(new TStore(init_data));
+        instance_.swap(ptr);
     }
 
     static bool IsInitialized()
@@ -36,162 +35,80 @@ template <typename TGet, typename TInit> class SingletonDB
 class CharacterData
 {
   public:
-    string name;
-    string appellation;
+    std::string name;
+    std::string appellation;
 
     explicit CharacterData(const Json::Value &json)
         : name(json["name"].asString()), appellation(json["appellation"].asString())
     {
     }
 };
-class CharacterTable : public PtrDictionary<string, CharacterData>, public SingletonDB<CharacterTable, Json::Value>
+class CharacterTable : public mem::PtrDictionary<std::string, CharacterData>, public SingletonDB<CharacterTable, Json::Value>
 {
   protected:
-    explicit CharacterTable(const Json::Value &json)
-        : PtrDictionary<string, CharacterData>(json_val_as_ptr_dictionary<CharacterData>(json))
-    {
-    }
+    friend class SingletonDB<CharacterTable, Json::Value>;
+    explicit CharacterTable(const Json::Value &json);
 };
-class CharacterLookupTable : public SingletonDB<CharacterLookupTable, Json::Value>
+class CharacterLookupTable : public SingletonDB<CharacterLookupTable, CharacterTable>
 {
   public:
-    [[nodiscard]] string NameToId(const string &name) const
-    {
-        auto it = name_to_id_.find(name);
-        return it == name_to_id_.end() ? "" : it->second;
-    }
+    [[nodiscard]] std::string NameToId(const std::string &name) const;
 
-    [[nodiscard]] string AppellationToId(const string &appellation) const
-    {
-        auto it = appellation_to_id_.find(appellation);
-        return it == appellation_to_id_.end() ? "" : it->second;
-    }
+    [[nodiscard]] std::string AppellationToId(const std::string &appellation) const;
 
-    [[nodiscard]] static string IdToName(const string &id)
-    {
-        if (!CharacterTable::IsInitialized())
-            return "";
+    [[nodiscard]] static std::string IdToName(const std::string &id);
 
-        auto it = CharacterTable::instance()->find(id);
-        return it == CharacterTable::instance()->end() ? "" : it->second->name;
-    }
-
-    [[nodiscard]] static string IdToAppellation(const string &id)
-    {
-        if (!CharacterTable::IsInitialized())
-            return "";
-
-        auto it = CharacterTable::instance()->find(id);
-        return it == CharacterTable::instance()->end() ? "" : it->second->appellation;
-    }
+    [[nodiscard]] static std::string IdToAppellation(const std::string &id);
 
   protected:
-    Dictionary<string, string> name_to_id_;
-    Dictionary<string, string> appellation_to_id_;
+    friend class SingletonDB<CharacterLookupTable, CharacterTable>;
+    Dictionary<std::string, std::string> name_to_id_;
+    Dictionary<std::string, std::string> appellation_to_id_;
 
-    explicit CharacterLookupTable(const CharacterTable &character_table)
-    {
-        for (auto &[char_id, character] : character_table)
-        {
-            name_to_id_[character->name] = char_id;
-            if (!character->appellation.empty())
-                appellation_to_id_[character->appellation] = char_id;
-        }
-    }
+    explicit CharacterLookupTable(const CharacterTable &character_table);
 };
-class SkillLookupTable : public SingletonDB<SkillLookupTable, bm::BuildingData>
+class SkillLookupTable : public SingletonDB<SkillLookupTable, data::building::BuildingData>
 {
   public:
     struct CharQueryItem
     {
-        string id;
+        std::string id;
         EvolvePhase phase = EvolvePhase::PHASE_0;
         int level = -1;
 
-        static CharQueryItem Empty()
-        {
-            return {};
-        }
+        static CharQueryItem Empty();
 
-        bool operator==(const CharQueryItem &other) const
-        {
-            return id == other.id && phase == other.phase && level == other.level;
-        }
+        bool operator==(const CharQueryItem &other) const;
 
-        bool operator!=(const CharQueryItem &other) const
-        {
-            return !(*this == other);
-        }
+        bool operator!=(const CharQueryItem &other) const;
 
         // 当该角色查询的解锁条件（精英阶段和等级）低于目标角色查询时，认为该角色查询可以被目标查询覆写
-        [[nodiscard]] bool CanBeOverwritten(const CharQueryItem &other) const
-        {
-            return id == other.id && phase <= other.phase && level <= other.level;
-        }
+        [[nodiscard]] bool CanBeOverwritten(const CharQueryItem &other) const;
 
-        [[nodiscard]] bool HasContent() const
-        {
-            return !id.empty();
-        }
+        [[nodiscard]] bool HasContent() const;
 
-        [[nodiscard]] string to_string() const
-        {
-            char buf[256];
-            char *p = buf;
-            size_t s = sizeof(buf);
-            append_snprintf(p, s, "id:%s, phase:%s, level:%d", id.c_str(), albc::util::to_string(phase), level);
-            return buf;
-        }
+        [[nodiscard]] std::string to_string() const;
     };
 
-    [[nodiscard]] bool HasId(const string& id) const
-    {
-        return id_to_name_.find(id) != id_to_name_.end();
-    }
+    [[nodiscard]] bool HasId(const std::string& id) const;
 
-    [[nodiscard]] bool HasName(const string& name) const
-    {
-        return name_to_id_.find(name) != name_to_id_.end();
-    }
+    [[nodiscard]] bool HasName(const std::string& name) const;
 
-    [[nodiscard]] string NameToId(const string &name) const
-    {
-        auto it = name_to_id_.find(name);
-        return it == name_to_id_.end() ? "" : it->second;
-    }
+    [[nodiscard]] std::string NameToId(const std::string &name) const;
 
-    [[nodiscard]] string IdToName(const string &id) const
-    {
-        auto it = id_to_name_.find(id);
-        return it == id_to_name_.end() ? "" : it->second;
-    }
+    [[nodiscard]] std::string IdToName(const std::string &id) const;
 
-    [[nodiscard]] CharQueryItem QueryCharWithBuffList(const Vector<string> &keys, bool is_name = false) const
-    {
-        CompositeHashKey key;
-        std::sort(keys.begin(), keys.end());
-        std::copy_n(keys.begin(), std::min(keys.size(), key.size()), key.begin());
-        const auto &map = is_name ? char_query_multi_buff_id_map_ : char_query_multi_buff_name_map_;
-        auto it = map.find(key);
-        return it != map.end() && it->second.IsValid()
-                   ? it->second.char_query
-                   : CharQueryItem::Empty();
-    }
+    [[nodiscard]] CharQueryItem QueryCharWithBuffList(const Vector<std::string> &keys, const std::string& char_key = {}) const;
 
-    [[nodiscard]] CharQueryItem QueryCharWithBuffIdentifier(const string &key, bool is_name = false) const
-    {
-        const auto &map = is_name ? char_query_buff_id_map_ : char_query_buff_name_map_;
-        auto it = map.find(key);
-        return it != map.end() && it->second.IsValid()
-                   ? it->second.char_query
-                   : CharQueryItem::Empty();
-    }
+    [[nodiscard]] CharQueryItem QueryCharWithBuff(const std::string& buff_key, const std::string& char_key = {}) const;
 
   protected:
-    Dictionary<string, string> name_to_id_;
-    Dictionary<string, string> id_to_name_;
+    friend class SingletonDB<SkillLookupTable, data::building::BuildingData>;
+    Dictionary<std::string, std::string> name_to_id_;
+    Dictionary<std::string, std::string> id_to_name_;
 
-    using CompositeHashKey = Array<string, kOperatorMaxBuffs>;
+    // （字符串集合） -> 查询结果
+    using CompositeHashKey = size_t;
 
     struct MapItem
     {
@@ -199,138 +116,42 @@ class SkillLookupTable : public SingletonDB<SkillLookupTable, bm::BuildingData>
         bool has_item = false;
         CharQueryItem char_query;
 
-        [[nodiscard]] bool IsValid() const
-        {
-            return has_item && is_terminal;
-        }
+        [[nodiscard]] bool IsValid() const;
 
-        void TryAssignOrOverwrite(const CharQueryItem &char_query_val)
-        {
-            if (!char_query_val.HasContent())
-                return;
-
-            // 当不能被覆写（既与目标查询不兼容）时，认为该条目存在冲突，不再表明某个独立的角色查询
-            is_terminal &= is_terminal && (!has_item || char_query.CanBeOverwritten(char_query_val));
-            has_item = true;
-            char_query = char_query_val;
-        }
+        void TryAssignOrOverwrite(const CharQueryItem &char_query_val);
     };
 
-    struct Hash
-    {
-        size_t operator()(const CompositeHashKey &key) const
-        {
-            return std::accumulate(key.begin(), key.end(), 0,
-                                   [](size_t seed, const string &str) { return seed ^ std::hash<string>()(str); });
-        }
-    };
+    using BuffToCharMap = std::unordered_map<CompositeHashKey, MapItem>;
 
-    using MultiBuffToCharMap = std::unordered_map<CompositeHashKey, MapItem, Hash>;
-    using SingleBuffToCharMap = std::unordered_map<string, MapItem>;
+    // 多buff/单buff/干员+多buff/干员+单buff/到干员的查询表
+    // buff_id(s) / buff_name(s) -> CharQueryItem
+    // char_id/name + buff_id(s) / char_id/name + buff_name(s)-> CharQueryItem
+    // id和名字共用一个map（因为不会冲突）
+    // 不支持模糊查询
+    BuffToCharMap query_map_;
+    static constexpr std::string_view kSingleBuffHashKey = "single_buff";
+    static constexpr std::string_view kMultiBuffHashKey = "multi_buff";
+    static constexpr std::string_view kCharHashKey = "with_char_key";
 
-    // 多buff/单buff到干员的查询表
-    MultiBuffToCharMap char_query_multi_buff_id_map_;
-    MultiBuffToCharMap char_query_multi_buff_name_map_;
-    SingleBuffToCharMap char_query_buff_id_map_;
-    SingleBuffToCharMap char_query_buff_name_map_;
+    explicit SkillLookupTable(const data::building::BuildingData &building_data);
 
-    explicit SkillLookupTable(const bm::BuildingData &building_data)
-    {
-        for (const auto &[id, buff] : building_data.buffs)
-        {
-            name_to_id_[buff->buff_name] = id;
-            id_to_name_[id] = buff->buff_name;
-        }
+    static void InsertQueryItem(BuffToCharMap & target, const CharQueryItem& query,
+                                const Vector<std::string>&buff_keys, const std::string& char_key = {});
 
-        for (const auto &[char_id, character] : building_data.chars)
-        {
-            // 用于生成该干员在所有可能的等级条件下的技能组合
-            EvolvePhase cur_phase = EvolvePhase::PHASE_0;
-            int cur_level = 1;
-            Vector<string> current;
-            Vector<string> current_names;
-            Vector<std::pair<bm::BuildingBuffCharSlot*, bm::SlotItem>> buff_cond_nodes;
-            // 同在一个Slot中的buff，当更高级的生效时需要替换掉低级的
-            Dictionary<bm::BuildingBuffCharSlot*, bm::SlotItem> buff_cond_slots;
+    static CompositeHashKey HashStringCollection(const Vector<std::string>& list);
 
-            for (const auto &slot : character->buff_char) {
-                for (const auto &slot_item : slot->buff_data) {
-                    buff_cond_nodes.push_back({slot.get(), slot_item});
-                }
-            }
+    static CompositeHashKey HashString(const std::string_view& str);
 
-            // 添加边界条件
-            bm::SlotItem boundary;
-            boundary.buff_id = "";
-            boundary.cond.phase = EvolvePhase::PHASE_3;
-            boundary.cond.level = INFINITY;
-            buff_cond_nodes.push_back({nullptr, boundary});
+    static CompositeHashKey HashMultiBuff(const Vector<std::string> &buff_keys, const std::string&char_key = {});
 
-            // 根据升级条件升序排序buff，得到角色从低级到高级依此解锁的技能顺序
-            std::sort(buff_cond_nodes.begin(), buff_cond_nodes.end(),
-                      [](const std::pair<bm::BuildingBuffCharSlot*, bm::SlotItem>& lhs,
-                         const std::pair<bm::BuildingBuffCharSlot*, bm::SlotItem>& rhs)
-                      { return lhs.second.cond.phase < rhs.second.cond.phase
-                               && lhs.second.cond.level < rhs.second.cond.level; });
+    static CompositeHashKey HashSingleBuff(const std::string& buff_key, const std::string&char_key = {});
 
-            // 生成buff组合
-            for (const auto &[slot, slot_item] : buff_cond_nodes) {
-                if (!slot_item.cond.Check(cur_phase, cur_level))
-                {
-                    if (current.empty())
-                        continue;
+    static void InsertMultiBuffLookupItem(BuffToCharMap &target, const CharQueryItem &query,
+                                          const Vector<std::string> &buff_keys, const std::string&char_key = {});
 
-                    CharQueryItem query{char_id, cur_phase, cur_level};
-                    InsertMultiBuffLookupItem(char_query_multi_buff_id_map_, query, current);
-                    InsertMultiBuffLookupItem(char_query_multi_buff_id_map_, query, current_names);
-                    for (const auto &id : current)
-                        InsertSingleBuffLookupItem(char_query_buff_id_map_, query, id);
+    static void InsertSingleBuffLookupItem(BuffToCharMap &target, const CharQueryItem &query,
+                                           const std::string &buff_key, const std::string&char_key = {});
 
-                    for (const auto &name : current_names)
-                        InsertSingleBuffLookupItem(char_query_buff_id_map_, query, name);
-                }
-
-                // 跳过边界条件
-                if (slot == nullptr || slot_item.buff_id.empty())
-                    break;
-
-                auto slot_it = buff_cond_slots.find(slot);
-                if (slot_it == buff_cond_slots.end())
-                {
-                    buff_cond_slots.insert({slot, slot_item});
-                    current.push_back(slot_item.buff_id);
-                    current_names.push_back(id_to_name_[slot_item.buff_id]);
-                }
-                else
-                {
-                    auto perv = slot_it->second;
-                    slot_it->second = slot_item;
-                    std::replace(current.begin(), current.end(), perv.buff_id, slot_item.buff_id);
-                    std::replace(current_names.begin(), current_names.end(), id_to_name_[perv.buff_id], id_to_name_[slot_item.buff_id]);
-                }
-            }
-        }
-    }
-
-    static void InsertMultiBuffLookupItem(MultiBuffToCharMap &target, const CharQueryItem &query,
-                                          const Vector<string> &identifiers)
-    {
-        if (!query.HasContent())
-            throw std::invalid_argument("InsertMultiBuffLookupItem(): char_id is empty");
-
-        CompositeHashKey key;
-        std::sort(identifiers.begin(), identifiers.end());
-        std::copy_n(identifiers.begin(), std::min(identifiers.size(), key.size()), key.begin());
-        target[key].TryAssignOrOverwrite(query);
-    }
-
-    static void InsertSingleBuffLookupItem(SingleBuffToCharMap &target, const CharQueryItem &query,
-                                           const string &identifier)
-    {
-        if (!query.HasContent())
-            throw std::invalid_argument("InsertSingleBuffLookupItem(): char_id is empty");
-
-        target[identifier].TryAssignOrOverwrite(query);
-    }
+    static void CleanupBuffLookupMap(BuffToCharMap &target, UInt32& valid_count);
 };
 } // namespace albc

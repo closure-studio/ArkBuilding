@@ -1,8 +1,22 @@
-//
-// Created by Nonary on 2022/4/7.
-//
+#pragma once
+#include "albc_common.h"
 
-#ifndef ALBC_CALBC_INTERNAL_H
-#define ALBC_CALBC_INTERNAL_H
+#define CALBC_HANDLE_DECL(name) \
+    struct name;\
+    typedef struct name name;
 
-#endif //ALBC_CALBC_INTERNAL_H
+#ifndef CALBC_E_PTR
+#   define CALBC_E_PTR AlbcException** e_ptr
+#endif
+
+#ifdef __GNUC__
+#   define CALBC_MAYBE_UNUSED __attribute__((unused))
+#else
+#   define CALBC_MAYBE_UNUSED
+#endif
+
+#ifdef _WIN32
+#   define CALBC_API(ret) CALBC_MAYBE_UNUSED ret __cdecl ALBC_EXPORT
+#else
+#   define CALBC_API(ret) CALBC_MAYBE_UNUSED ret
+#endif

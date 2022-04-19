@@ -6,7 +6,7 @@
 #include "primitive_types.h"
 #include "json/json.h"
 
-namespace albc::bm
+namespace albc::data::player
 {
 enum class PlayerRoomState
 {
@@ -27,7 +27,7 @@ struct PlayerBuildingRoomSlot
 
     int level;
     PlayerRoomSlotState state;
-    RoomType room_id;
+    building::RoomType room_id;
     Vector<int> char_inst_ids;
 };
 
@@ -44,8 +44,8 @@ struct PlayerBuildingChar
     PlayerBuildingChar() = default;
     explicit PlayerBuildingChar(const Json::Value &json);
 
-    string char_id;
-    string room_slot_id;
+    std::string char_id;
+    std::string room_slot_id;
     time_t last_ap_add_time;
     int ap;
     int index;
@@ -91,7 +91,7 @@ struct TradingOrderBuff
 {
     explicit TradingOrderBuff(const Json::Value &json);
 
-    string from;
+    std::string from;
     int param;
 };
 
@@ -116,7 +116,7 @@ struct PlayerBuildingTrading
 
     TradingBuff buff;
     PlayerRoomState state;
-    OrderType order_type = OrderType::UNDEFINED;
+    model::buff::OrderType order_type = model::buff::OrderType::UNDEFINED;
     int stock_limit;
     Vector<PlayerBuildingTradingOrder> stock;
     BuildingBuffDisplay display;
@@ -136,8 +136,8 @@ struct PlayerBuildingLabor
 class PlayerBuildingRoom
 {
   public:
-    Dictionary<string, PlayerBuildingManufacture> manufacture;
-    Dictionary<string, PlayerBuildingTrading> trading;
+    Dictionary<std::string, PlayerBuildingManufacture> manufacture;
+    Dictionary<std::string, PlayerBuildingTrading> trading;
 
     PlayerBuildingRoom() = default;
     explicit PlayerBuildingRoom(const Json::Value &json);
@@ -150,9 +150,9 @@ class PlayerBuilding
     explicit PlayerBuilding(const Json::Value &json);
 
     PlayerBuildingLabor status_labor{};
-    Dictionary<string, PlayerBuildingRoomSlot> room_slots;
+    Dictionary<std::string, PlayerBuildingRoomSlot> room_slots;
     PlayerBuildingRoom player_building_room;
-    PtrDictionary<string, PlayerBuildingChar> chars;
+    mem::PtrDictionary<std::string, PlayerBuildingChar> chars;
     List<int> assist;
 };
 } // namespace albc::bm

@@ -16,7 +16,6 @@ begin_(reinterpret_cast<const uint8_t *>(begin)),
 end_(reinterpret_cast<const uint8_t *>(begin) + size),
 current_(begin_)
 {
-    static_assert(sizeof(char) == sizeof(uint8_t), "char and uint8_t must be the same size");
     assert(std::less_equal<const uint8_t *>()(begin_, end_));
 }
 

@@ -1,7 +1,7 @@
 #pragma once
 #include "util.h"
 
-namespace albc
+namespace albc::util
 {
 	template<typename T1, typename T2>
 	constexpr bool check_flag(const T1 x, const T2 y)

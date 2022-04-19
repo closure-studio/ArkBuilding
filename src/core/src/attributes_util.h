@@ -3,7 +3,7 @@
 #include "primitive_types.h"
 #include "util.h"
 
-namespace albc
+namespace albc::util
 {
 	template<typename TField, size_t Size, typename TType, typename TVal>
 	constexpr void write_attribute(Array<TField, Size>& attributes_fields, TType attribute_type, TVal val)
@@ -22,4 +22,10 @@ namespace albc
 	{
 		return attribute_fields[static_cast<size_t>(attribute_type)];
 	}
+
+    template<typename TEnum, typename TField, size_t Size, typename TType>
+    constexpr TEnum read_attribute_as_enum(const Array<TField, Size>& attribute_fields, TType attribute_type)
+    {
+        return static_cast<TEnum>(attribute_fields[static_cast<size_t>(attribute_type)]);
+    }
 }

@@ -10,11 +10,11 @@
 #endif
 
 #if defined(ALBC_CONFIG_WIN_GCC) && defined(ALBC_BUILD_DLL)
-#define ALBC_WIN_EXPORT __attribute__((dllexport))
-#define ALBC_WIN_IMPORT __attribute__((dllimport))
+#define ALBC_EXPORT __attribute__((dllexport))
+#elif __GNUC__ >= 4
+#define ALBC_EXPORT __attribute__((visibility("default")))
 #else
-#define ALBC_WIN_EXPORT
-#define ALBC_WIN_IMPORT
+#define ALBC_EXPORT
 #endif
 
 #pragma once
@@ -22,7 +22,7 @@
 extern "C" {
 #endif
 
-enum AlbcLogLevel
+typedef enum
 {
     ALBC_LOG_LEVEL_ALL = 0,
     ALBC_LOG_LEVEL_DEBUG = 1,
@@ -30,14 +30,14 @@ enum AlbcLogLevel
     ALBC_LOG_LEVEL_WARN = 3,
     ALBC_LOG_LEVEL_ERROR = 4,
     ALBC_LOG_LEVEL_NONE = 5,
-};
+} AlbcLogLevel;
 
-enum AlbcTestMode
+typedef enum
 {
     ALBC_TEST_MODE_ONCE = 0,
     ALBC_TEST_MODE_SEQUENTIAL = 1,
     ALBC_TEST_MODE_PARALLEL = 2
-};
+} AlbcTestMode;
 
 typedef struct
 {
@@ -63,11 +63,10 @@ typedef struct
 
 typedef struct
 {
-    const char *what;
-    int code;
+    char *what;
 } AlbcException;
 
-enum AlbcRoomType
+typedef enum
 {
     ALBC_ROOM_NONE = 0,
     ALBC_ROOM_CONTROL = 1 << 0,
@@ -84,50 +83,52 @@ enum AlbcRoomType
     ALBC_ROOM_TRAINING = 1 << 11,
     ALBC_ROOM_FUNCTIONAL = 0b111001111110,
     ALBC_ROOM_ALL = (1 << 12) - 1
-};
+} AlbcRoomType;
 
-enum AlbcRoomProductType
+typedef enum
 {
     ALBC_ROOM_PROD_NONE = 0,
-    ALBC_ROOM_PROD_RECORD_1 = 1,
+    ALBC_ROOM_PROD_GOLD = 1,
+    ALBC_ROOM_PROD_RECORD_1 = 2,
     ALBC_ROOM_PROD_RECORD_2 = 2,
-    ALBC_ROOM_PROD_RECORD_3 = 3,
-    ALBC_ROOM_PROD_GOLD = 4,
-    ALBC_ROOM_PROD_CHIP_1 = 5,
-    ALBC_ROOM_PROD_CHIP_2 = 6,
-    ALBC_ROOM_PROD_CHIP_3 = 7,
-    ALBC_ROOM_PROD_CHIP_4 = 8,
-    ALBC_ROOM_PROD_CHIP_5 = 9,
-    ALBC_ROOM_PROD_CHIP_6 = 10,
-    ALBC_ROOM_PROD_CHIP_7 = 11,
-    ALBC_ROOM_PROD_CHIP_8 = 12,
-    ALBC_ROOM_PROD_ORIGINIUM_SHARD_ORIROCK = 13,
-    ALBC_ROOM_PROD_ORIGINIUM_SHARD_DEVICE = 14,
-};
+    ALBC_ROOM_PROD_RECORD_3 = 2,
+    ALBC_ROOM_PROD_ORIGINIUM_SHARD_ORIROCK = 3,
+    ALBC_ROOM_PROD_ORIGINIUM_SHARD_DEVICE = 3,
+    ALBC_ROOM_PROD_CHIP_1 = 4,
+    ALBC_ROOM_PROD_CHIP_2 = 4,
+    ALBC_ROOM_PROD_CHIP_3 = 4,
+    ALBC_ROOM_PROD_CHIP_4 = 4,
+    ALBC_ROOM_PROD_CHIP_5 = 4,
+    ALBC_ROOM_PROD_CHIP_6 = 4,
+    ALBC_ROOM_PROD_CHIP_7 = 4,
+    ALBC_ROOM_PROD_CHIP_8 = 4,
+} AlbcRoomProductType;
 
-enum AlbcRoomOrderType
+typedef enum
 {
     ALBC_ROOM_ORDER_NONE = 0,
     ALBC_ROOM_ORDER_GOLD = 1,
     ALBC_ROOM_ORDER_ORUNDUM = 2
-};
+} AlbcRoomOrderType;
 
-enum AlbcModelParamType
+typedef enum
 {
     ALBC_MODEL_PARAM_DURATION = 0,
-};
+    ALBC_MODEL_PARAM_SOLVE_TIME_LIMIT = 1,
+} AlbcModelParamType;
 
-enum AlbcRoomParamType
+typedef enum
 {
-    ALBC_ROOM_PARAM_SLOTS = 0,
+    ALBC_ROOM_PARAM_SLOT_COUNT = 0,
     ALBC_ROOM_PARAM_PRODUCT_TYPE = 1,
     ALBC_ROOM_PARAM_ORDER_TYPE = 2,
     ALBC_ROOM_PARAM_PRODUCT_COUNT = 3, // 包含产品及订单数量
-};
+} AlbcRoomParamType;
 
 // log callback
-typedef void (*AlbcLogHandler)(const char *);
+typedef void (*AlbcLogHandler)(const char * message);
 typedef void (*AlbcFlushLogHandler)();
+typedef void (*AlbcForEachCallback)(int i, const void* item, void* user_data);
 
 #ifdef __cplusplus
 }

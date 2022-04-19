@@ -5,6 +5,15 @@
 #define PROGRAMOPTIONS_NO_COLORS
 #include "ProgramOptions/ProgramOptions.hxx"
 
+#ifdef _WIN32
+#   ifndef NOMINMAX
+#       define NOMINMAX
+#   endif
+#   include <windows.h>
+#   undef ERROR
+#endif
+
+
 void read_file_to_ss(const std::string &filename, std::stringstream &ss)
 {
     std::ifstream ifs(filename);
@@ -18,52 +27,71 @@ void read_file_to_ss(const std::string &filename, std::stringstream &ss)
 
 int main(const int argc, char *argv[])
 {
+#ifdef _WIN32
+    SetConsoleOutputCP(CP_UTF8);
+#endif
+
     po::parser parser;
-    std::string game_data;
-    std::string player_data;
+    std::string game_data, player_data, character_table;
+    std::stringstream player_data_json, game_data_json, character_table_json;
     std::string log_level_str;
-    std::stringstream player_data_json, game_data_json;
     std::string model_time_limit_str = "57600";
-    std::string solve_time_limit_str = "20";
+    std::string solve_time_limit_str = "60";
     std::string albc_test_mode_str;
-    std::string albc_test_param_str;
+    std::string albc_test_param_str = "0";
 
     // add options to parser
     // add playerdata and gamedata to parser
     parser["playerdata"]
         .abbreviation('p')
-        .description("Path to player data file.                 \nPATH                            : string")
+        .description(
+            "Path to player data file.\n"
+            "PATH                            : string")
         .bind(player_data);
 
     parser["gamedata"]
         .abbreviation('g')
-        .description("Path to Arknights building data file.     \nPATH                            : string")
+        .description("Path to Arknights building data file.\n"
+                     "PATH                            : string")
         .bind(game_data);
+
+    parser["character-table"]
+        .abbreviation('c')
+        .description("Path to character table file.\n"
+                     "PATH                            : string")
+        .bind(character_table);
 
     parser["log-level"]
         .abbreviation('l')
-        .description("Log level.\nDefault is WARN.              \n<DEBUG|INFO|WARN|ERROR>         : string")
+        .description("Log level.\nDefault is WARN.\n"
+                     "<ALL|DEBUG|INFO|WARN|ERROR|NONE>: string")
         .bind(log_level_str);
 
     parser["model-max-time"]
         .abbreviation('t')
         .description(
-            "Model time limit in seconds.\nDefault is 57600 (16 hours). \nTIME                            : double")
+            "Model time limit in seconds.\n"
+            "Default is 57600 (16 hours). \n"
+            "TIME                            : double")
         .bind(model_time_limit_str);
 
     parser["sovle-max-time"]
         .abbreviation('T')
-        .description("Problem solving timeout in seconds.\nDefault is 20. \nTIME                            : double")
+        .description("Problem solving timeout in seconds.\n"
+                     "Default is 60. \n"
+                     "TIME                            : double")
         .bind(solve_time_limit_str);
 
     parser["test-mode"]
         .abbreviation('m')
-        .description("Test mode. Leave empty for normal mode.   \n<ONCE|SEQUENTIAL|PARALLEL>      : string")
+        .description("Test mode. Leave empty for normal mode.\n"
+                     "<ONCE|SEQUENTIAL|PARALLEL>      : string")
         .bind(albc_test_mode_str);
 
     parser["test-param"]
         .abbreviation('P')
-        .description("Test param.                               \nNUM_CONCURRENCY|NUM_ITERATIONS  : int")
+        .description("Test param.\n"
+                     "NUM_CONCURRENCY|NUM_ITERATIONS  : int")
         .bind(albc_test_param_str);
 
     auto &gen_lp = parser["lp-file"].abbreviation('L').description(
@@ -93,25 +121,29 @@ int main(const int argc, char *argv[])
     }
 
     bool test_enabled = !albc_test_mode_str.empty();
+    AlbcTestMode test_mode = albc::ParseTestMode(albc_test_mode_str.c_str(), ALBC_TEST_MODE_ONCE);
     // check if all required options are set
-    if (player_data.empty() || game_data.empty() || (test_enabled && albc_test_param_str.empty()))
+    try
     {
-        std::cerr << "Error: Missing required options!" << std::endl;
         // print missing options name
         if (player_data.empty())
         {
             std::cerr << "must specify the path to player data file!" << std::endl;
+            throw std::invalid_argument("playerdata");
         }
         if (game_data.empty())
         {
             std::cerr << "must specify the path to building data file!" << std::endl;
+            throw std::invalid_argument("gamedata");
         }
-        if (test_enabled && albc_test_param_str.empty())
+        if (test_enabled && test_mode != ALBC_TEST_MODE_ONCE && !parser["test-param"].was_set())
         {
             std::cerr << "must specify the test param!" << std::endl;
+            throw std::invalid_argument("test-param");
         }
-
-        std::cout << parser << std::endl;
+    } catch (const std::invalid_argument& e)
+    {
+        std::cerr << "Error: Missing required options! : " << e.what() << std::endl;
         return -1;
     }
 
@@ -120,7 +152,16 @@ int main(const int argc, char *argv[])
         std::cout << "Main process started." << std::endl;
         std::cout << "Reading game data file: " << game_data << std::endl;
         read_file_to_ss(game_data, game_data_json);
-        albc::SetGlobalBuildingData(game_data_json.str().c_str());
+        read_file_to_ss(character_table, character_table_json);
+        albc::InitCharacterTableFromJson(character_table_json.str().c_str());
+        albc::InitBuildingDataFromJson(game_data_json.str().c_str());
+
+        const char* skills[] = {u8"“等不及”", u8"“都想要”"};
+        std::unique_ptr<albc::ICharQuery> query1(albc::QueryChar(2, skills));
+        std::printf("OK:%d ID:%s Name:%s E:%d LVL:%d\n", +query1->IsValid(), query1->Id().c_str(), query1->Name().c_str(), query1->Phase(), query1->Level());
+
+        std::unique_ptr<albc::ICharQuery> query2(albc::QueryChar("默契", "德克萨斯"));
+        std::printf("OK:%d ID:%s Name:%s E:%d LVL:%d\n", +query2->IsValid(), query2->Id().c_str(), query2->Name().c_str(), query2->Phase(), query2->Level());
 
         std::cout << "Reading player data file: " << player_data << std::endl;
         read_file_to_ss(player_data, player_data_json);
@@ -133,7 +174,7 @@ int main(const int argc, char *argv[])
 
             auto test_cfg = std::make_unique<AlbcTestConfig>();
             test_cfg->base_parameters.level = albc::ParseLogLevel(log_level_str.c_str(), ALBC_LOG_LEVEL_WARN);
-            test_cfg->mode = albc::ParseTestMode(albc_test_mode_str.c_str(), ALBC_TEST_MODE_ONCE);
+            test_cfg->mode = test_mode;
             test_cfg->param = std::stoi(albc_test_param_str);
             test_cfg->show_all_ops = all_ops.was_set();
 

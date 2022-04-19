@@ -2,7 +2,7 @@
 #include "json_util.h"
 #include "buff_primitives.h"
 
-namespace albc::bm
+namespace albc::data::player
 {
 BuildingBuffDisplay::BuildingBuffDisplay(const Json::Value& json):
     base_buff(json["base"].asInt()),
@@ -20,7 +20,7 @@ PlayerBuildingChar::PlayerBuildingChar(const Json::Value& json):
 { }
 
 PlayerBuildingManufacture::PlayerBuildingManufacture(const Json::Value& json):
-    state(json_val_as_enum<PlayerRoomState>(json["state"])),
+    state(util::json_val_as_enum<PlayerRoomState>(json["state"])),
     formula_id(static_cast<ManufactureFormulaId>(strtol(json["formulaId"].asString().c_str(), nullptr, 0))),
     remain_sln_cnt(json["remainSolutionCnt"].asInt()),
     output_sln_cnt(json["outputSolutionCnt"].asInt()),
@@ -30,7 +30,10 @@ PlayerBuildingManufacture::PlayerBuildingManufacture(const Json::Value& json):
     last_update_time(json["lastUpdateTime"].asInt64()),
     complete_work_time(json["completeWorkTime"].asInt64())
 {
-    assert(magic_enum::enum_contains<ManufactureFormulaId>(formula_id) && "Invalid formula id");
+    if (!magic_enum::enum_contains<ManufactureFormulaId>(formula_id))
+    {
+        LOG_E("Invalid formula id: ", static_cast<int>(formula_id));
+    }
 }
 
 TradingOrderBuff::TradingOrderBuff(const Json::Value& json):
@@ -45,19 +48,19 @@ TradingBuff::TradingBuff(const Json::Value& json):
 
 PlayerBuildingTrading::PlayerBuildingTrading(const Json::Value& json)
     : buff(json["buff"]),
-      state(json_val_as_enum<PlayerRoomState>(json["state"])),
+      state(util::json_val_as_enum<PlayerRoomState>(json["state"])),
       stock_limit(json["stockLimit"].asInt()),
-      stock(json_val_as_vector<PlayerBuildingTradingOrder>(json["stock"])),
+      stock(util::json_val_as_vector<PlayerBuildingTradingOrder>(json["stock"])),
       display(json["display"])
 {
     const auto o_type = json["strategy"].asString();
     if (o_type == "O_GOLD")
     {
-        order_type = OrderType::GOLD;
+        order_type = model::buff::OrderType::GOLD;
     }
     else if (o_type == "O_DIAMOND")
     {
-        order_type = OrderType::ORUNDUM;
+        order_type = model::buff::OrderType::ORUNDUM;
     }
     else
     {
@@ -73,24 +76,21 @@ PlayerBuildingLabor::PlayerBuildingLabor(const Json::Value& json):
 { }
 
 PlayerBuildingRoom::PlayerBuildingRoom(const Json::Value &json)
-    : manufacture(json_val_as_dictionary<PlayerBuildingManufacture>(json["MANUFACTURE"])),
-      trading(json_val_as_dictionary<PlayerBuildingTrading>(json["TRADING"]))
+    : manufacture(util::json_val_as_dictionary<PlayerBuildingManufacture>(json["MANUFACTURE"])),
+      trading(util::json_val_as_dictionary<PlayerBuildingTrading>(json["TRADING"]))
 { }
 
 PlayerBuilding::PlayerBuilding(const Json::Value& json)
     : status_labor(json["status"]["labor"]),
-      room_slots(json_val_as_dictionary<PlayerBuildingRoomSlot>(json["roomSlots"])),
+      room_slots(util::json_val_as_dictionary<PlayerBuildingRoomSlot>(json["roomSlots"])),
       player_building_room(json["rooms"]),
-      chars(json_val_as_ptr_dictionary<PlayerBuildingChar>(json["chars"]))
+      chars(util::json_val_as_ptr_dictionary<PlayerBuildingChar>(json["chars"]))
 { }
 
 PlayerBuildingRoomSlot::PlayerBuildingRoomSlot(const Json::Value &json)
     : level(json["level"].asInt()),
-      state(json_val_as_enum<PlayerRoomSlotState>(json["state"])),
-      room_id(json_string_as_enum(json["roomId"], RoomType::NONE)),
-      char_inst_ids(json_val_as_vector<int>(json["charInstIds"],
-                                            [](const Json::Value& json) -> int {
-                                                return json.asInt();
-                                            }))
+      state(util::json_val_as_enum<PlayerRoomSlotState>(json["state"])),
+      room_id(util::json_string_as_enum(json["roomId"], building::RoomType::NONE)),
+      char_inst_ids(util::json_val_as_vector<int>(json["charInstIds"], util::json_cast<int>))
 { }
 }

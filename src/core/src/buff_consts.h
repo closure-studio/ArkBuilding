@@ -1,8 +1,14 @@
-//
-// Created by Nonary on 2022/4/2.
-//
+// buff consts
+#pragma once
+#include <cstddef>
 
-#ifndef ALBC_BUFF_CONSTS_H
-#define ALBC_BUFF_CONSTS_H
+namespace albc::model::buff
+{
+static constexpr size_t kRoomMaxBuffSlots = 10;
+static constexpr size_t kRoomMaxOperators = 5;
+static constexpr size_t kOperatorMaxBuffs = 4;
+static constexpr size_t kAlgOperatorSize = 512;
+static constexpr size_t kFuncPiecewiseMaxSegmentCount = 5;
 
-#endif //ALBC_BUFF_CONSTS_H
+static constexpr double kAlgDefaultDuration = 3600 * 16;
+} // namespace albc

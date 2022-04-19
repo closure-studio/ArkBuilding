@@ -1,8 +1,7 @@
-//
-// Created by Nonary on 2022/4/14.
-//
+#pragma once
 
-#ifndef ALBC_ALGORITHM_CONSTS_H
-#define ALBC_ALGORITHM_CONSTS_H
-
-#endif //ALBC_ALGORITHM_CONSTS_H
+namespace albc::algorithm
+{
+static constexpr double kDefaultModelTimeLimit = 3600 * 4;
+static constexpr double kDefaultSolveTimeLimit = 60;
+}

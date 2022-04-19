@@ -1,8 +1,24 @@
-//
-// Created by Nonary on 2022/4/16.
-//
+#pragma once
+#include "primitive_types.h"
+#include "algorithm_primitives.h"
 
-#ifndef ALBC_ALGORITHM_PARAMS_H
-#define ALBC_ALGORITHM_PARAMS_H
+namespace albc::algorithm
+{
 
-#endif //ALBC_ALGORITHM_PARAMS_H
+struct RoomResult
+{
+    SolutionData solution;
+    model::buff::RoomModel* room = nullptr;
+};
+
+struct AlgorithmResult
+{
+    Vector<RoomResult> rooms;
+
+    void Clear()
+    {
+        rooms.clear();
+    }
+};
+
+} // namespace albc::algorithm

@@ -7,11 +7,16 @@
 #include <fstream>
 #include <iostream>
 
-namespace albc::json
+namespace albc::util
 {
-template <typename T> constexpr auto json_ctor(const Json::Value &json) -> T *
+template <typename T> constexpr auto json_ctor(const Json::Value &json) -> T*
 {
     return new T(json);
+} // the default constructor
+
+template <typename T> constexpr auto json_cast(const Json::Value &json) -> decltype(json.as<T>())
+{
+    return json.as<T>();
 } // the default constructor
 
 template <typename TEnum> constexpr auto json_val_as_enum(const Json::Value &val) -> TEnum
@@ -26,11 +31,11 @@ template <typename TEnum> constexpr TEnum json_string_as_enum(const Json::Value 
     return parse_enum_string(val.asString(), default_val);
 }
 
-template <typename TValue> static auto json_val_as_dictionary(const Json::Value &val) -> Dictionary<string, TValue>
+template <typename TValue> static auto json_val_as_dictionary(const Json::Value &val) -> Dictionary<std::string, TValue>
 {
     static_assert(std::is_constructible_v<TValue, const Json::Value &>,
                   "TValue must be constructible from Json::Value");
-    Dictionary<string, TValue> dict;
+    Dictionary<std::string, TValue> dict;
 
     const auto &names = val.getMemberNames();
     auto it = names.begin();
@@ -45,10 +50,10 @@ template <typename TValue> static auto json_val_as_dictionary(const Json::Value 
 } // Reads json object and assigns its keys and values to a Map
 
 template <typename TValue>
-static Dictionary<string, TValue> json_val_as_dictionary(const Json::Value &val,
-                                                         TValue (*val_factory)(const Json::Value &json))
+static Dictionary<std::string, TValue> json_val_as_dictionary(const Json::Value &val,
+                                                              TValue (*val_factory)(const Json::Value &json))
 {
-    Dictionary<string, TValue> dict;
+    Dictionary<std::string, TValue> dict;
 
     const auto &names = val.getMemberNames();
     auto it = names.begin();
@@ -63,13 +68,13 @@ static Dictionary<string, TValue> json_val_as_dictionary(const Json::Value &val,
 } // Reads json object and assigns its keys and values to a Map, use a value factory to create the values
 
 template <typename TValue, template <class...> typename TPtr = std::unique_ptr>
-static PtrDictionary<string, TValue, TPtr> json_val_as_ptr_dictionary(const Json::Value &val)
+static mem::PtrDictionary<std::string, TValue, TPtr> json_val_as_ptr_dictionary(const Json::Value &val)
 {
     static_assert(std::is_constructible_v<TValue, const Json::Value &>,
                   "TValue must be constructible from Json::Value");
     static_assert(std::is_constructible_v<TPtr<TValue>, TValue *>, "TPtr must be constructible from TValue*");
 
-    PtrDictionary<string, TValue, TPtr> dict;
+    mem::PtrDictionary<std::string, TValue, TPtr> dict;
 
     const auto &names = val.getMemberNames();
     auto it = names.begin();
@@ -132,12 +137,12 @@ static auto json_val_as_vector(const Json::Value &val, T (*val_factory)(const Js
 } // Reads json array and assigns its items to a Vector, use a value factory to create the values
 
 template <typename T, template <class...> typename TPtr = std::unique_ptr>
-static PtrVector<T, TPtr> json_val_as_ptr_vector(const Json::Value &val)
+static mem::PtrVector<T, TPtr> json_val_as_ptr_vector(const Json::Value &val)
 {
     static_assert(std::is_constructible_v<T, const Json::Value &>, "T must be constructible from Json::Value");
     static_assert(std::is_constructible_v<TPtr<T>, T *>, "TPtr must be constructible from T*");
 
-    PtrVector<T, TPtr> vec;
+    mem::PtrVector<T, TPtr> vec;
     for (const auto &item : val)
     {
         vec.emplace_back(new T(item));
@@ -146,7 +151,7 @@ static PtrVector<T, TPtr> json_val_as_ptr_vector(const Json::Value &val)
     return vec;
 } // Reads json array and assigns its items to a Vector
 
-[[maybe_unused]] static auto read_json_from_file(const string &path) -> Json::Value
+[[maybe_unused]] static auto read_json_from_file(const std::string &path) -> Json::Value
 {
     Json::Value result;
     std::ifstream fs_read(path);
@@ -154,7 +159,6 @@ static PtrVector<T, TPtr> json_val_as_ptr_vector(const Json::Value &val)
     fs_read.close();
     return result;
 } // Reads json from a file
-} // namespace albc::json
 
 [[maybe_unused]] static Json::Value read_json_from_char_array(const char *json_str)
 {
@@ -169,5 +173,4 @@ static PtrVector<T, TPtr> json_val_as_ptr_vector(const Json::Value &val)
     }
     return result;
 } // Reads json from a char array
-
-using namespace albc::json;
+} // namespace albc::util

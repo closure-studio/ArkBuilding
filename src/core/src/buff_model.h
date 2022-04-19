@@ -12,7 +12,7 @@
 #include <algorithm>
 #include <cstdarg>
 
-namespace albc
+namespace albc::model::buff
 {
 /**
  * @brief 描述Buff的作用范围类型, 即Buff效果由哪些因素决定
@@ -54,6 +54,14 @@ class ModifierApplier
     RoomAttributeModifier room_mod;       //房间属性修改
     RoomFinalAttributeModifier final_mod; //房间最终属性修改
     CharacterCostModifier cost_mod;       //角色心情消耗修改
+
+    void MarkInvalid()
+    {
+        scope.data.Reset();
+        RoomAttributeModifier::mark_invalid(this->room_mod);
+        RoomFinalAttributeModifier::mark_invalid(this->final_mod);
+        CharacterCostModifier::mark_invalid(this->cost_mod);
+    }
 };
 
 /**
@@ -63,25 +71,25 @@ class RoomBuff
 {
   public:
     int owner_inst_id = 0;  //拥有该Buff的干员的实例Id
-    string owner_char_id{}; //拥有该Buff的角色Id
-    string buff_id{};       // Buff的Id
-    string name;
-    string description;
+    std::string owner_char_id{}; //拥有该Buff的角色Id
+    std::string buff_id{};       // Buff的Id
+    std::string name;
+    std::string description;
     RoomBuffType inner_type{RoomBuffType::UNDEFINED}; //内部类型
-    PtrVector<RoomBuffTargetValidator, std::shared_ptr> validators;     //作用范围验证器
-    bm::RoomType room_type{bm::RoomType::NONE};       //作用房间类型
+    mem::PtrVector<RoomBuffTargetValidator, std::shared_ptr> validators;     //作用范围验证器
+    data::building::RoomType room_type{data::building::RoomType::NONE};       //作用房间类型
     int sort_id = 0;                                  //排序id
     double duration = 86400;                          //持续时间，由干员的心情决定
     ModifierApplier applier{};
     RoomBuff *const prototype;
-    Vector<string> patch_targets; //指定该buff将会替代掉哪些buff的效果
+    Vector<std::string> patch_targets; //指定该buff将会替代掉哪些buff的效果
     bool is_mutex = false;        //是否会与同类Buff互斥
 
     RoomBuff() : prototype(static_cast<RoomBuff *>(this))
     {
     }
 
-    explicit RoomBuff(bm::RoomType room_type, RoomBuffType inner_type)
+    explicit RoomBuff(data::building::RoomType room_type, RoomBuffType inner_type)
         : inner_type(inner_type), room_type(room_type), prototype(static_cast<RoomBuff *>(this))
     {
     }
@@ -105,7 +113,7 @@ class RoomBuff
     {
     }
 
-    virtual void UpdateLookup(const PlayerTroopLookup&)
+    virtual void UpdateLookup(const data::player::PlayerTroopLookup&)
     {
     }
 
@@ -156,7 +164,7 @@ template <typename TDerived> class CloneableRoomBuff : public RoomBuff
 
     RoomBuff *Clone() final
     {
-        return prototype == this ? mem::aligned_new<TDerived>(static_cast<const TDerived &>(*this))
+        return prototype == this ? new TDerived(static_cast<const TDerived &>(*this))
                                  : prototype->Clone();
     }
 };
@@ -167,7 +175,7 @@ template <typename TDerived> class CloneableRoomBuff : public RoomBuff
 class BasicInc : public CloneableRoomBuff<BasicInc>
 {
   public:
-    BasicInc(const double eff_delta, const int cap_delta, const bm::RoomType room_type_1, const RoomBuffType inner_type)
+    BasicInc(const double eff_delta, const int cap_delta, const data::building::RoomType room_type_1, const RoomBuffType inner_type)
         : CloneableRoomBuff(room_type_1, inner_type) // 指定房间的效率, 房间容量, 内部类型(用于处理某些同类buff互斥)
     {
         RoomAttributeModifier::init(applier.room_mod, this,
@@ -177,7 +185,7 @@ class BasicInc : public CloneableRoomBuff<BasicInc>
     }
 
     BasicInc(const double eff_delta, const int cap_delta, const double cost_mod,
-             const CharCostModifierType cost_mod_type, const bm::RoomType room_type_1, const RoomBuffType inner_type)
+             const CharCostModifierType cost_mod_type, const data::building::RoomType room_type_1, const RoomBuffType inner_type)
         : BasicInc(eff_delta, cap_delta, room_type_1, inner_type)
     {
         CharacterCostModifier::init(applier.cost_mod, this,
@@ -195,7 +203,7 @@ class IncEffOverTime : public CloneableRoomBuff<IncEffOverTime>
 {
   public:
     IncEffOverTime(const double base_eff_delta, const double eff_inc_per_hour, const double max_extra_eff_inc,
-                   const bm::RoomType room_type_1, const RoomBuffType inner_type)
+                   const data::building::RoomType room_type_1, const RoomBuffType inner_type)
         : CloneableRoomBuff(room_type_1, inner_type)
     {
         RoomAttributeModifier::init(applier.room_mod, this,
@@ -214,7 +222,7 @@ class IncEffByPowerPlantCnt : public CloneableRoomBuff<IncEffByPowerPlantCnt>
 {
   public:
     explicit IncEffByPowerPlantCnt(const double addition_per_power_plant)
-        : CloneableRoomBuff(bm::RoomType::MANUFACTURE, RoomBuffType::FACTORY_INC_EFF_BY_POWER_PLANT),
+        : CloneableRoomBuff(data::building::RoomType::MANUFACTURE, RoomBuffType::FACTORY_INC_EFF_BY_POWER_PLANT),
           addition_per_power_plant_(addition_per_power_plant)
     {
         this->is_mutex = true;
@@ -224,7 +232,7 @@ class IncEffByPowerPlantCnt : public CloneableRoomBuff<IncEffByPowerPlantCnt>
     void UpdateScope(const ModifierScopeData &data) override
     {
         const int power_plant_count =
-            read_attribute_as_int(data.room->global_attributes, GlobalAttributeType::POWER_PLANT_CNT);
+            util::read_attribute_as_int(data.room->global_attributes, GlobalAttributeType::POWER_PLANT_CNT);
 
         RoomFinalAttributeModifier::init(applier.final_mod, this,
                                          inner_type,
@@ -247,7 +255,7 @@ class IncEffByOtherEffInc : public CloneableRoomBuff<IncEffByOtherEffInc>
 {
   public:
     IncEffByOtherEffInc(const double unit_addition, const double unit_factor, const double max_extra_addition,
-                        const bm::RoomType room_type_1, const RoomBuffType inner_type)
+                        const data::building::RoomType room_type_1, const RoomBuffType inner_type)
         : CloneableRoomBuff(room_type_1, inner_type)
     {
         RoomFinalAttributeModifier::init(applier.final_mod, this,
@@ -269,7 +277,7 @@ class IncEffByOtherCapInc : public CloneableRoomBuff<IncEffByOtherCapInc>
   public:
     IncEffByOtherCapInc(const int threshold, const double below_addition_per_limit,
                         const double above_addition_per_limit)
-        : CloneableRoomBuff(bm::RoomType::MANUFACTURE, RoomBuffType::FACTORY_INC_EFF_BY_CAP_ADDITION),
+        : CloneableRoomBuff(data::building::RoomType::MANUFACTURE, RoomBuffType::FACTORY_INC_EFF_BY_CAP_ADDITION),
           threshold_(threshold), below_addition_(below_addition_per_limit), above_addition_(above_addition_per_limit)
     {
         this->is_mutex = true;
@@ -308,7 +316,7 @@ class IncEffByGlobalAttribute : public CloneableRoomBuff<IncEffByGlobalAttribute
 {
   public:
     inline IncEffByGlobalAttribute(const double unit, const double addition_per_unit, const GlobalAttributeType global_attribute_type,
-                                   const bm::RoomType room_type_1, const RoomBuffType inner_type)
+                                   const data::building::RoomType room_type_1, const RoomBuffType inner_type)
         : CloneableRoomBuff(room_type_1, inner_type), unit_(unit), addition_per_unit_(addition_per_unit),
           global_attribute_type_(global_attribute_type)
     {
@@ -316,7 +324,7 @@ class IncEffByGlobalAttribute : public CloneableRoomBuff<IncEffByGlobalAttribute
     }
 
     inline IncEffByGlobalAttribute(const double base_delta, const double unit, const double addition_per_unit,
-                                   const GlobalAttributeType global_attribute_type, const bm::RoomType room_type_1,
+                                   const GlobalAttributeType global_attribute_type, const data::building::RoomType room_type_1,
                                    const RoomBuffType inner_type)
         : IncEffByGlobalAttribute(unit, addition_per_unit, global_attribute_type, room_type_1, inner_type)
     {
@@ -328,7 +336,7 @@ class IncEffByGlobalAttribute : public CloneableRoomBuff<IncEffByGlobalAttribute
         RoomAttributeModifier::init(applier.room_mod, this,
                                     inner_type,
                                     base_delta_ + addition_per_unit_ *
-                                        floor(read_attribute(data.room->global_attributes, global_attribute_type_)) / unit_);
+                                        floor(util::read_attribute(data.room->global_attributes, global_attribute_type_)) / unit_);
                                     // eff
     }
 
@@ -345,7 +353,7 @@ class IncEffByGlobalAttribute : public CloneableRoomBuff<IncEffByGlobalAttribute
 class IncEffByStandardizationCnt : public CloneableRoomBuff<IncEffByStandardizationCnt>
 {
   public:
-    inline IncEffByStandardizationCnt(const double addition_per_unit, const bm::RoomType room_type_1,
+    inline IncEffByStandardizationCnt(const double addition_per_unit, const data::building::RoomType room_type_1,
                                       const RoomBuffType inner_type)
         : CloneableRoomBuff(room_type_1, inner_type), addition_per_unit_(addition_per_unit)
     {
@@ -386,7 +394,7 @@ class IncEffByStandardizationCnt : public CloneableRoomBuff<IncEffByStandardizat
 class VodfoxTradeBuff : public CloneableRoomBuff<VodfoxTradeBuff>
 {
   public:
-    inline VodfoxTradeBuff() : CloneableRoomBuff(bm::RoomType::TRADING, RoomBuffType::TRADING_WHISPERS)
+    inline VodfoxTradeBuff() : CloneableRoomBuff(data::building::RoomType::TRADING, RoomBuffType::TRADING_WHISPERS)
     {
         applier.scope.type = ModifierScopeType::DEPEND_ON_ROOM;
     }
@@ -419,7 +427,7 @@ class JayeTradeBuff : public CloneableRoomBuff<JayeTradeBuff>
 {
   public:
     inline explicit JayeTradeBuff(bool is_above_elite_one)
-        : CloneableRoomBuff(bm::RoomType::TRADING, RoomBuffType::TRADING_BASIC_NEEDS),
+        : CloneableRoomBuff(data::building::RoomType::TRADING, RoomBuffType::TRADING_BASIC_NEEDS),
           is_above_elite_one_(is_above_elite_one)
     {
         applier.scope.type = ModifierScopeType::DEPEND_ON_OTHER_CHAR;
@@ -471,14 +479,14 @@ class LapplandTradeBuff : public CloneableRoomBuff<LapplandTradeBuff>
 {
   public:
     inline LapplandTradeBuff(double cost_delta, int cap_delta)
-        : CloneableRoomBuff(bm::RoomType::TRADING, RoomBuffType::TRADING_HIDDEN_PURPOSE),
+        : CloneableRoomBuff(data::building::RoomType::TRADING, RoomBuffType::TRADING_HIDDEN_PURPOSE),
           cost_delta_(cost_delta),
           cap_delta_(cap_delta)
     {
         applier.scope.type = ModifierScopeType::DEPEND_ON_OTHER_CHAR;
     }
 
-    void UpdateLookup(const PlayerTroopLookup &lookup) override
+    void UpdateLookup(const data::player::PlayerTroopLookup &lookup) override
     {
         texas_char_inst_id_ = lookup.GetInstId("char_102_texas");
         enabled_ = texas_char_inst_id_ >= 0;
@@ -532,7 +540,7 @@ class TexasTradeBuff : public CloneableRoomBuff<TexasTradeBuff>
 {
   public:
     inline explicit TexasTradeBuff(bool affected_by_angel)
-        : CloneableRoomBuff<TexasTradeBuff>(bm::RoomType::TRADING, RoomBuffType::TRADING_FEUD),
+        : CloneableRoomBuff<TexasTradeBuff>(data::building::RoomType::TRADING, RoomBuffType::TRADING_FEUD),
           affected_by_angel_(affected_by_angel)
     {
         if (affected_by_angel)
@@ -543,7 +551,7 @@ class TexasTradeBuff : public CloneableRoomBuff<TexasTradeBuff>
         applier.scope.type = ModifierScopeType::DEPEND_ON_OTHER_CHAR;
     }
 
-    void UpdateLookup(const PlayerTroopLookup &lookup) override
+    void UpdateLookup(const data::player::PlayerTroopLookup &lookup) override
     {
         angel_char_inst_id_ = lookup.GetInstId("char_103_angel");
         lappland_char_inst_id_ = lookup.GetInstId("char_140_whitew");
@@ -619,7 +627,7 @@ public:
     static constexpr double kLvl2FourGoldChance = 0.7;
 
     explicit TradeChanceBuff(TradeChanceType type)
-        : CloneableRoomBuff(bm::RoomType::TRADING, RoomBuffType::TRADING_INC_ORDER_CHANCE),
+        : CloneableRoomBuff(data::building::RoomType::TRADING, RoomBuffType::TRADING_INC_ORDER_CHANCE),
         indirect_addition_(GetEquivalentEffInc(type))
     {
         this->applier.scope.type = ModifierScopeType::DEPEND_ON_OTHER_CHAR;

@@ -14,12 +14,12 @@
 #include "util.h"
 
 // this marco is used to measure the execution time of a scope, and prints filename, function name, line number, and duration
-#define SCOPE_TIMER_WITH_TRACE(name) albc::diagnostics::ScopeTimer(                 \
-    string("ALBC|").append(albc::util::GetReadableTime()).append("|").append(albc::util::get_current_thread_id())     \
+#define SCOPE_TIMER_WITH_TRACE(name) albc::util::ScopeTimer(                 \
+    std::string("ALBC|").append(albc::util::GetReadableTime()).append("|").append(albc::util::get_current_thread_id())     \
     .append("|TIMER|").append(__FILENAME__).append(":")                                        \
     .append(__FUNCTION__).append(STRINGIFY(:__LINE__|[ScopeTimer])).append((name)))
 
-namespace albc::diagnostics
+namespace albc::util
 {
     using PerfClock = std::conditional<                // this type is used to measure high resolution time
         std::chrono::high_resolution_clock::is_steady, // check if std::chrono::high_resolution_clock is steady
@@ -41,7 +41,7 @@ namespace albc::diagnostics
     class [[nodiscard]] ScopeTimer
     {
     public:
-        explicit ScopeTimer(string name, LogLevel log_level = LogLevel::INFO)
+        explicit ScopeTimer(std::string name, LogLevel log_level = LogLevel::INFO)
             : m_name(std::move(name)), // store name
               m_start(PerfClock::now()), // store start time
                 log_level_(log_level)
@@ -57,7 +57,7 @@ namespace albc::diagnostics
         }
 
     private:
-        string m_name;
+        std::string m_name;
         const PerfClock::time_point m_start;
         const LogLevel log_level_;
     };

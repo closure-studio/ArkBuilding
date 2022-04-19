@@ -4,6 +4,7 @@
 #pragma once
 #pragma clang diagnostic push
 #pragma ide diagnostic ignored "OCUnusedGlobalDeclarationInspection"
+#include "buff_consts.h"
 #include "attributes_util.h"
 #include "bit_ops.h"
 #include "building_data_model.h"
@@ -12,36 +13,26 @@
 #include "primitive_types.h"
 #include "util.h"
 
-constexpr auto kRoomMaxBuffSlots = 10;
-
-namespace albc
+namespace albc::model::buff
 {
-static constexpr UInt32 kInvalidSlot = static_cast<unsigned>(0xFFFF);
-
-// check if the slot is valid, indicating a valid, or an "occupied" slot
-static constexpr auto validate_room_slot(const UInt32 slot) -> bool
-{
-    return slot < static_cast<unsigned>(kRoomMaxBuffSlots);
-}
-
 struct RoomAttributeModifier; // forward declaration
 class RoomBuff;               // forward declaration
 
 enum class OrderType // order type
 {
-    UNDEFINED,
-    GOLD,
-    ORUNDUM
+    UNDEFINED = 0,
+    GOLD = 1,
+    ORUNDUM = 2
 };
 
 // production type
 enum class ProdType
 {
-    UNDEFINED,
-    GOLD,
-    RECORD,
-    ORIGINIUM_SHARD,
-    CHIP
+    UNDEFINED = 0,
+    GOLD = 1,
+    RECORD = 2,
+    ORIGINIUM_SHARD = 3,
+    CHIP = 4
 };
 
 ///基建技能类型,每种类型对应一种图标
@@ -112,29 +103,28 @@ enum class RoomBuffType
 // global attribute types
 enum class GlobalAttributeType
 {
-    CHAIN_OF_THOUGHT,     //思维链环
-    PERCEPTION_INFO,      //感知信息
-    WORLDLY_PLIGHT,       //人间烟火
-    INTELLIGENCE_RESERVE, //情报储备
-    MEMORY_FRAGMENT,      //记忆碎片
-    VODKA,                //乌萨斯特饮
+    CHAIN_OF_THOUGHT = 0,     //思维链环
+    PERCEPTION_INFO = 1,      //感知信息
+    WORLDLY_PLIGHT = 2,       //人间烟火
+    INTELLIGENCE_RESERVE = 3, //情报储备
+    MEMORY_FRAGMENT = 4,      //记忆碎片
+    VODKA = 5,                //乌萨斯特饮
 
-    FACTORY_EFF_INC,    //全局生产效率（如凯尔希）
-    TRADING_EFF_INC,    //全局交易效率
-    POWER_PLANT_CNT,    //全局发电站数量
-    TRADING_POST_CNT,   //全局交易站数
-    DORM_OPERATOR_CNT,  //宿舍内干员数
-    GOLD_PROD_LINE_CNT, //全局赤金生产线数
-    DORM_SUM_LEVEL,     //宿舍总等级
+    FACTORY_EFF_INC = 6,    //全局生产效率（如凯尔希）
+    TRADING_EFF_INC = 7,    //全局交易效率
+    POWER_PLANT_CNT = 8,    //全局发电站数量
+    TRADING_POST_CNT = 9,   //全局交易站数
+    DORM_OPERATOR_CNT = 10,  //宿舍内干员数
+    GOLD_PROD_LINE_CNT = 11, //全局赤金生产线数
+    DORM_SUM_LEVEL = 12,     //宿舍总等级
 };
 
-using GlobalAttributeFields = Array<double, enum_size<GlobalAttributeType>::value>;
+using GlobalAttributeFields = Array<double, util::enum_size<GlobalAttributeType>::value>;
 
 struct RoomAttributeFields
 {
     ProdType prod_type = ProdType::UNDEFINED;
     OrderType order_type = OrderType::UNDEFINED;
-    // time_t time_span = 0;
     double base_prod_eff = 1;  //基础生产效率
     int base_prod_cap = 10;    //基础产品容量
     double base_char_cost = 1; //基础心情消耗
@@ -146,7 +136,6 @@ enum class ModifierAttributeType
     EFF_DELTA, //生产效率增减
     CAP_DELTA, //生产容量增减
     EFF_SCALE, //生产效率倍数
-    CAP_SCALE, //生产容量倍数（尚未使用）
 };
 
 enum class CharCostModifierType
@@ -184,12 +173,12 @@ struct RoomAttributeModifier
         return validate(*this);
     }
 
-    [[nodiscard]] string to_string() const
+    [[nodiscard]] std::string to_string() const
     {
         char buf[256];
         char *p = buf;
         size_t size = sizeof buf;
-        append_snprintf(p, size, "[%-35s]dE:%3.f%%, dC:%2d, A:%3.f%%, mE:%3.f%%", ::to_string(buff_type).data(),
+        util::append_snprintf(p, size, "[%-35s]dE:%3.f%%, dC:%2d, A:%3.f%%, mE:%3.f%%", util::enum_to_string(buff_type).data(),
                         eff_delta * 100, cap_delta, eff_inc_per_hour * 100, max_extra_eff_delta * 100);
 
         return buf;
@@ -226,14 +215,14 @@ struct RoomFinalAttributeModifier : RoomAttributeModifier
     RoomFinalAttributeModifierType final_mod_type = RoomFinalAttributeModifierType::NONE; //最终属性修改类型
     double eff_scale = 1.; //生产效率倍数
 
-    string to_string() const
+    std::string to_string() const
     {
         char buf[256];
         char *p = buf;
         size_t size = sizeof buf;
-        append_snprintf(p, size, "[%-35s]dE:%3.f%%, dC:%2d, A:%3.f%%, mE:%3.f%%, [%-12s]kE%3.f%%",
-                        ::to_string(buff_type).data(), eff_delta * 100, cap_delta, eff_inc_per_hour * 100,
-                        max_extra_eff_delta * 100, ::to_string(final_mod_type).data(), eff_scale * 100);
+        util::append_snprintf(p, size, "[%-35s]dE:%3.f%%, dC:%2d, A:%3.f%%, mE:%3.f%%, [%-12s]kE%3.f%%",
+                        util::enum_to_string(buff_type).data(), eff_delta * 100, cap_delta, eff_inc_per_hour * 100,
+                        max_extra_eff_delta * 100, util::enum_to_string(final_mod_type).data(), eff_scale * 100);
 
         return buf;
     }
@@ -266,12 +255,12 @@ struct CharacterCostModifier
 
     auto operator!=(const CharacterCostModifier &other) const -> bool;
 
-    [[nodiscard]] string to_string() const
+    [[nodiscard]] std::string to_string() const
     {
         char buf[256];
         char *p = buf;
         size_t size = sizeof(buf);
-        append_snprintf(p, size, "[%-15s]dC:%3.f%%", ::to_string(type).data(), value * 100);
+        util::append_snprintf(p, size, "[%-15s]dC:%3.f%%", util::enum_to_string(type).data(), value * 100);
 
         return buf;
     }
@@ -305,14 +294,14 @@ struct RoomDynamicFields
 class RoomModel //房间模型
 {
   public:
-    string id;                                 //房间id
+    std::string id;                                 //房间id
     int max_slot_count = 3;                    //房间最大槽位数
     GlobalAttributeFields global_attributes{}; //全局属性
     RoomAttributeFields room_attributes{};     //房间属性
     RoomDynamicFields dynamic_fields{};
     RoomBuff *buffs[kRoomMaxBuffSlots]{};      //房间buff
     UInt32 n_buff = 0U;                        //房间buff数量
-    bm::RoomType type = bm::RoomType::NONE;    //房间类型
+    data::building::RoomType type = data::building::RoomType::NONE;    //房间类型
 
     //向房间内添加一个buff
     constexpr auto PushBuff(RoomBuff *buff) -> void
@@ -340,30 +329,32 @@ class RoomModel //房间模型
         }
     }
 
-    [[nodiscard]] string to_string() const
+    [[nodiscard]] std::string to_string() const
     {
+        using namespace util;
+
         char buf[8192];
         char *p = buf;
         size_t size = sizeof buf;
 
         append_snprintf(p, size, "[RoomModel]\n");
-        append_snprintf(p, size, "\t- Type    :%s\n", ::to_string(type).data());
+        append_snprintf(p, size, "\t- Type    :%s\n", enum_to_string(type).data());
         append_snprintf(p, size, "\t- ID      :%s\n", id.data());
         append_snprintf(p, size, "\t- SlotCnt :%d\n", max_slot_count);
         append_snprintf(p, size, "[GlobalAttributes]\n");
 
-        string global_attr;
+        std::string global_attr;
         UInt32 attr_type = 0;
         for (const auto attr : global_attributes)
         {
             append_snprintf(p, size, "\t- %-20s: %3.f\n",
-                            ::to_string(static_cast<GlobalAttributeType>(attr_type)).data(), attr);
+                            enum_to_string(static_cast<GlobalAttributeType>(attr_type)).data(), attr);
             ++attr_type;
         }
 
         append_snprintf(p, size, "[RoomAttributes]\n");
-        append_snprintf(p, size, "\t- Prod    :%s\n", ::to_string(room_attributes.prod_type).data());
-        append_snprintf(p, size, "\t- Order   :%s\n", ::to_string(room_attributes.order_type).data());
+        append_snprintf(p, size, "\t- Prod    :%s\n", enum_to_string(room_attributes.prod_type).data());
+        append_snprintf(p, size, "\t- Order   :%s\n", enum_to_string(room_attributes.order_type).data());
         append_snprintf(p, size, "\t- BaseEff :%3.f%%\n", room_attributes.base_prod_eff * 100);
         append_snprintf(p, size, "\t- BaseCap :%d\n", room_attributes.base_prod_cap);
         append_snprintf(p, size, "\t- BaseCost:%3.f%%\n", room_attributes.base_char_cost * 100);

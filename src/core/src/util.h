@@ -9,6 +9,8 @@
 #include <cstdarg>
 #include <cstring>
 #include <thread>
+#include <numeric>
+#include <cxxabi.h>
 
 // get filename, without path
 #ifndef __FILENAME__
@@ -113,7 +115,7 @@ namespace albc::util
     // convert an enum value to a string, using magic enum
     // use std::enable_if and std::is_enum_v<T> to check if T is an enum
     template <typename T>
-    constexpr string_view to_string(const T value, typename std::enable_if<std::is_enum_v<T>>::type * = nullptr)
+    constexpr std::string_view enum_to_string(const T value, typename std::enable_if<std::is_enum_v<T>>::type * = nullptr)
     {
         return magic_enum::enum_name<T>(value);
     }
@@ -152,7 +154,7 @@ namespace albc::util
     template <typename TGet, typename TStore = TGet> class LazySingleton
     {
       public:
-        static std::shared_ptr<TGet> instance()
+        inline static std::shared_ptr<TGet> instance()
         {
             static std::shared_ptr<TStore> instance{new TStore()};
             return instance;
@@ -190,14 +192,14 @@ namespace albc::util
 #endif
     }
 
-    template <typename TU> static string to_bin_string(const TU x)
+    template <typename TU> static std::string to_bin_string(const TU x)
     {
         std::stringstream ss;
         ss << std::bitset<8 * sizeof(TU)>(x);
         return ss.str();
     }
 
-    template <typename TEnum> static constexpr TEnum parse_enum_string(const string& str, TEnum default_value)
+    template <typename TEnum> static constexpr TEnum parse_enum_string(const std::string& str, TEnum default_value)
     {
         const auto val_or_null = magic_enum::enum_cast<TEnum>(str);
         return val_or_null.has_value() ? val_or_null.value() : default_value;
@@ -206,14 +208,14 @@ namespace albc::util
 
     // get ops_for_partial_comb time_t in MM-DD HH:MM:SS
     // uses chrono
-    static string GetReadableTime()
+    static std::string GetReadableTime()
     {
         auto now = std::chrono::system_clock::now();
         auto in_time_t = std::chrono::system_clock::to_time_t(now);
         auto tm = *std::localtime(&in_time_t);
         char buffer[64];
         std::strftime(buffer, sizeof(buffer), "%m-%d.%H:%M:%S", &tm);
-        return string{buffer};
+        return std::string{buffer};
     }
 
     [[maybe_unused]] static int append_snprintf(char *&buffer, size_t &buffer_size, const char *fmt, ...)
@@ -232,17 +234,17 @@ namespace albc::util
         return ret;
     }
 
-    static string get_current_thread_id()
+    static std::string get_current_thread_id()
     {
         char buf[20];
         std::sprintf(buf, "%08X", static_cast<UInt32>(std::hash<std::thread::id>{}(std::this_thread::get_id())));
-        return string{buf};
+        return std::string{buf};
     }
 
     template <typename TFunc>
     struct defer
     {
-        defer(TFunc &&func) : func(std::forward<TFunc>(func)) {}
+        explicit defer(TFunc &&func) : func(std::forward<TFunc>(func)) {}
         defer(const defer &) = delete;
         defer &operator=(const defer &) = delete;
 
@@ -255,7 +257,24 @@ namespace albc::util
     {
         return defer<TFunc>(std::forward<TFunc>(func));
     }
-} // namespace util
+
+    template <typename T>
+    std::string TypeName()
+    {
+        int status = 114514;
+        std::unique_ptr<char, void (*)(void *)> result(
+            abi::__cxa_demangle(typeid(T).name(), nullptr, nullptr, &status), std::free);
+
+        return (status == 0) ? result.get() : typeid(T).name();
+    }
+
+    template <typename TIter>
+    std::string Join(const TIter &begin, const TIter &end, const std::string &sep)
+    {
+        return std::accumulate(begin, end, std::string{},
+                               [&sep](const auto &a, const auto &b) { return a + (b.empty() ? "" : sep) += (b); });
+    }
+} // namespace albc::util
 
 namespace detail
 {
@@ -275,5 +294,3 @@ constexpr const char *strip_path(const char *path)
     return lastname;
 }
 } // namespace detail
-
-using namespace albc::util;

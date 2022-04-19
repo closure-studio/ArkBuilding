@@ -10,7 +10,7 @@
 /ArknightsGameData-master/
 /ArknightsGameData/
 /CMakeFiles/
-/compile_commands.json
+/compile_commands.util
 /build.ninja
 /Makefile
 /CMakeCache.txt
@@ -97,7 +97,7 @@
 **/Makefile
 **/*.cbp
 **/CMakeScripts
-**/compile_commands.json
+**/compile_commands.util
 
 include/divisible/*
 

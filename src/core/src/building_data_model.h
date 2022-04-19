@@ -6,7 +6,7 @@
 #include "primitive_types.h"
 #include "util.h"
 
-namespace albc::bm
+namespace albc::data::building
 {
 static constexpr size_t kRoomTypeCount = 12;
 
@@ -25,16 +25,17 @@ enum class RoomType
     TRADING = 1 << 9,
     WORKSHOP = 1 << 10,
     TRAINING = 1 << 11,
-    FUNCTIONAL = 0b111001111110,
+    FUNCTIONAL = 0b1110'0111'1110,
     ALL = (1 << 12) - 1
 };
 
 struct SlotItem
 {
-    string buff_id;
+    std::string buff_id;
     UnlockCondition cond;
 
     explicit SlotItem(const Json::Value &json);
+    SlotItem() = default;
 };
 
 class BuildingBuffCharSlot
@@ -48,9 +49,9 @@ class BuildingBuffCharSlot
 class BuildingCharacter
 {
   public:
-    string char_id;
+    std::string char_id;
     Int64 max_man_power;
-    PtrVector<BuildingBuffCharSlot> buff_char;
+    mem::PtrVector<BuildingBuffCharSlot> buff_char;
 
     explicit BuildingCharacter(const Json::Value &json);
 };
@@ -58,11 +59,11 @@ class BuildingCharacter
 class BuildingBuff
 {
   public:
-    string buff_id;
-    string buff_name;
+    std::string buff_id;
+    std::string buff_name;
     int sort_id;
     RoomType room_type;
-    string description;
+    std::string description;
 
     explicit BuildingBuff(const Json::Value &json);
 };
@@ -70,15 +71,15 @@ class BuildingBuff
 class BuildingData
 {
   public:
-    PtrDictionary<string, BuildingCharacter> chars;
-    PtrDictionary<string, BuildingBuff> buffs;
+    mem::PtrDictionary<std::string, BuildingCharacter> chars;
+    mem::PtrDictionary<std::string, BuildingBuff> buffs;
 
     BuildingData() = default;
     explicit BuildingData(const Json::Value &json);
 };
-} // namespace albc::bm
+} // namespace albc::data::game
 
-template <> struct magic_enum::customize::enum_range<albc::bm::RoomType>
+template <> struct magic_enum::customize::enum_range<albc::data::building::RoomType>
 {
     static constexpr bool is_flags = true;
     static constexpr int min = 0;

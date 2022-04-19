@@ -5,10 +5,9 @@
 #include "primitive_types.h"
 #include "util.h"
 
-#define SIMULATOR_UNROLL_MAX_BUFF_CNT UNROLL_LOOP(kRoomMaxBuffSlots)
-#define kFuncPiecewiseMaxSegmentCount 5
+#define SIMULATOR_UNROLL_MAX_BUFF_CNT UNROLL_LOOP(albc::model::buff::kRoomMaxBuffSlots)
 
-namespace albc
+namespace albc::model::buff
 {
 class Simulator
 {
@@ -16,7 +15,7 @@ class Simulator
     static void 
     ALBC_FLATTEN
     ALBC_INLINE
-    DoCalc(const RoomModel *room, double max_allowed_duration, double& result)
+    DoCalc(const RoomModel *room, double max_allowed_duration, double& result, double& duration)
     {
         PiecewiseMap<kFuncPiecewiseMaxSegmentCount> eff_piecewise;
         ModifierScopeData scope;
@@ -92,7 +91,7 @@ class Simulator
             base_cap_delta += buff_mod.cap_delta;
             base_eff_delta += buff_mod.eff_delta;
 
-            if (!fp_eq(buff_mod.eff_inc_per_hour, 0.))
+            if (!util::fp_eq(buff_mod.eff_inc_per_hour, 0.))
             {
                 const double acc = buff_mod.eff_inc_per_hour * 2.777777777777778e-4; // div by 3600, unit: 1/s
                 base_acc += acc;
@@ -152,7 +151,7 @@ class Simulator
             
         }
 
-        if (fp_eq(final_eff_mul, 0.)) // 所有非Final的modifier均失效
+        if (util::fp_eq(final_eff_mul, 0.)) // 所有非Final的modifier均失效
         {
             result = estimated_duration *
                    (room->room_attributes.base_prod_eff + final_eff_delta * indirect_eff_mul + indirect_eff_delta);
@@ -167,7 +166,7 @@ class Simulator
         {
             const auto &final_mod = room->buffs[i]->applier.final_mod;
 
-            if (!final_mod.IsValid() || fp_eq(final_mod.eff_scale, 1.))
+            if (!final_mod.IsValid() || util::fp_eq(final_mod.eff_scale, 1.))
             {
                 continue;
             }
@@ -181,7 +180,7 @@ class Simulator
                 const double reach_top_ts =
                     final_mod.max_extra_eff_delta <= perv_base * final_mod.eff_scale
                         ? perv_ts
-                        : fp_round_n((final_mod.max_extra_eff_delta / final_mod.eff_scale - perv_base) / perv_acc);
+                        : util::fp_round_n((final_mod.max_extra_eff_delta / final_mod.eff_scale - perv_base) / perv_acc);
                 // handle a multiplier of other buffs reaching its maximum value because the effective increment over
                 // time_t
                 if (reach_top_ts >= 0 && reach_top_ts <= ts)
@@ -192,7 +191,7 @@ class Simulator
                     break;
                 }
 
-                if (fp_eq(ts, 0.))
+                if (util::fp_eq(ts, 0.))
                 {
                     continue;
                 }
@@ -203,7 +202,7 @@ class Simulator
             }
         }
         result = Integrate(eff_piecewise, 0., estimated_duration, room->room_attributes.base_prod_eff); // integrate the piecewise function
-
+        duration = estimated_duration;
     }
 
   protected:

@@ -93,7 +93,7 @@ license you like.
 #define LIB_JSONCPP_JSON_TOOL_H_INCLUDED
 
 #if !defined(JSON_IS_AMALGAMATION)
-#include <json/config.h>
+#include <util/config.h>
 #endif
 
 // Also support old flag NO_LOCALE_SUPPORT
@@ -244,9 +244,9 @@ Iter fixZerosInTheEnd(Iter begin, Iter end, unsigned int precision) {
 
 #if !defined(JSON_IS_AMALGAMATION)
 #include "json_tool.h"
-#include <json/assertions.h>
-#include <json/reader.h>
-#include <json/value.h>
+#include <util/assertions.h>
+#include <util/reader.h>
+#include <util/value.h>
 #endif // if !defined(JSON_IS_AMALGAMATION)
 #include <algorithm>
 #include <cassert>
@@ -2286,7 +2286,7 @@ void ValueIteratorBase::decrement() { --current_; }
 
 ValueIteratorBase::difference_type
 ValueIteratorBase::computeDistance(const SelfType& other) const {
-  // Iterator for null value are initialized using the default
+  // FwdIterator for null value are initialized using the default
   // constructor, which initialize current_ to the default
   // std::map::iterator. As begin() and end() are two instance
   // of the default std::map::iterator, they can not be compared.
@@ -2399,7 +2399,7 @@ ValueIterator::ValueIterator(const Value::ObjectValues::iterator& current)
 
 ValueIterator::ValueIterator(const ValueConstIterator& other)
     : ValueIteratorBase(other) {
-  throwRuntimeError("ConstIterator to Iterator should never be allowed.");
+  throwRuntimeError("ConstIterator to FwdIterator should never be allowed.");
 }
 
 ValueIterator::ValueIterator(const ValueIterator& other) = default;
@@ -2430,9 +2430,9 @@ ValueIterator& ValueIterator::operator=(const SelfType& other) {
 // See file LICENSE for detail or copy at http://jsoncpp.sourceforge.net/LICENSE
 
 #if !defined(JSON_IS_AMALGAMATION)
-#include <json/assertions.h>
-#include <json/value.h>
-#include <json/writer.h>
+#include <util/assertions.h>
+#include <util/value.h>
+#include <util/writer.h>
 #endif // if !defined(JSON_IS_AMALGAMATION)
 #include <algorithm>
 #include <cassert>
@@ -4079,7 +4079,7 @@ Value& Path::make(Value& root) const {
 
 #if !defined(JSON_IS_AMALGAMATION)
 #include "json_tool.h"
-#include <json/writer.h>
+#include <util/writer.h>
 #endif // if !defined(JSON_IS_AMALGAMATION)
 #include <algorithm>
 #include <cassert>

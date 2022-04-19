@@ -6,11 +6,10 @@
 #include "operator_model.h"
 #include "primitive_types.h"
 #include "simulator.h"
-#include "worker_params.h"
 #include "xml_util.h"
 
 namespace albc::worker
-{   
+{
 enum class TestMode
 {
     ONCE = 0,

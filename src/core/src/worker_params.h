@@ -11,10 +11,48 @@
 
 namespace albc::worker
 {
-using PlayerBuildingRoomMap = Array<PtrVector<RoomModel>, bm::kRoomTypeCount>;
-
-static GlobalAttributeFields GlobalAttributeFactory(const bm::PlayerBuilding &building)
+class CustomCharacterData
 {
+  public:
+    std::string identifier;
+    std::string resolved_char_id;
+    bool is_regular_character;
+    double morale;
+    data::EvolvePhase phase;
+    int level;
+    Vector<std::string> resolved_skill_ids;
+};
+
+class CustomRoomData
+{
+  public:
+    std::string identifier;
+    data::building::RoomType type;
+    int max_slot_cnt;
+    model::buff::RoomAttributeFields room_attributes;
+};
+
+class CustomGlobalData
+{
+  public:
+    model::buff::GlobalAttributeFields global_attributes {};
+};
+
+class CustomPackedInput
+{
+  public:
+    Vector<CustomCharacterData> characters;
+    Vector<CustomRoomData> rooms;
+    CustomGlobalData global_data;
+};
+
+using PlayerBuildingRoomMap = Array<mem::PtrVector<model::buff::RoomModel>, data::building::kRoomTypeCount>;
+
+static model::buff::GlobalAttributeFields GlobalAttributeFactory(const data::player::PlayerBuilding &building)
+{
+    using namespace model::buff;
+    using namespace util;
+
     UInt32 power_plant_cnt = 0;
     UInt32 trading_post_cnt = 0;
     UInt32 dorm_operator_cnt = 0;
@@ -25,16 +63,16 @@ static GlobalAttributeFields GlobalAttributeFactory(const bm::PlayerBuilding &bu
     {
         switch (slot.room_id)
         {
-        case bm::RoomType::POWER:
+        case data::building::RoomType::POWER:
             power_plant_cnt++;
             break;
 
-        case bm::RoomType::DORMITORY:
+        case data::building::RoomType::DORMITORY:
             dorm_operator_cnt += slot.char_inst_ids.size();
             dorm_sum_level += slot.level;
             break;
 
-        case bm::RoomType::TRADING:
+        case data::building::RoomType::TRADING:
             trading_post_cnt++;
             break;
 
@@ -45,11 +83,11 @@ static GlobalAttributeFields GlobalAttributeFactory(const bm::PlayerBuilding &bu
 
     for (const auto &[id, manu_room] : building.player_building_room.manufacture)
     {
-        if (manu_room.formula_id == bm::ManufactureFormulaId::GOLD)
+        if (manu_room.formula_id == data::player::ManufactureFormulaId::GOLD)
             gold_prod_line_cnt++;
     }
 
-    GlobalAttributeFields attr;
+    model::buff::GlobalAttributeFields attr;
     write_attribute(attr, GlobalAttributeType::POWER_PLANT_CNT, power_plant_cnt);
     write_attribute(attr, GlobalAttributeType::TRADING_POST_CNT, trading_post_cnt);
     write_attribute(attr, GlobalAttributeType::DORM_OPERATOR_CNT, dorm_operator_cnt);
@@ -59,11 +97,11 @@ static GlobalAttributeFields GlobalAttributeFactory(const bm::PlayerBuilding &bu
     return attr;
 }
 
-static std::unique_ptr<RoomModel> RoomFactory(const string &id, const bm::PlayerBuildingManufacture &manufacture_room,
-                                              int level)
+static std::unique_ptr<model::buff::RoomModel> RoomFactory(
+    const std::string &id, const data::player::PlayerBuildingManufacture &manufacture_room, int level)
 {
-    auto room = std::make_unique<RoomModel>();
-    room->type = bm::RoomType::MANUFACTURE;
+    auto room = std::make_unique<model::buff::RoomModel>();
+    room->type = data::building::RoomType::MANUFACTURE;
     room->id = id;
     room->max_slot_count = level;
     room->room_attributes.base_char_cost = 1;
@@ -72,34 +110,34 @@ static std::unique_ptr<RoomModel> RoomFactory(const string &id, const bm::Player
 
     switch (manufacture_room.formula_id)
     {
-    case bm::ManufactureFormulaId::RECORD_1:
-    case bm::ManufactureFormulaId::RECORD_2:
-    case bm::ManufactureFormulaId::RECORD_3:
-        room->room_attributes.prod_type = ProdType::RECORD;
+    case data::player::ManufactureFormulaId::RECORD_1:
+    case data::player::ManufactureFormulaId::RECORD_2:
+    case data::player::ManufactureFormulaId::RECORD_3:
+        room->room_attributes.prod_type = model::buff::ProdType::RECORD;
         break;
 
-    case bm::ManufactureFormulaId::GOLD:
-        room->room_attributes.prod_type = ProdType::GOLD;
+    case data::player::ManufactureFormulaId::GOLD:
+        room->room_attributes.prod_type = model::buff::ProdType::GOLD;
         break;
 
-    case bm::ManufactureFormulaId::ORIGINIUM_SHARD_ORIROCK:
-    case bm::ManufactureFormulaId::ORIGINIUM_SHARD_DEVICE:
-        room->room_attributes.prod_type = ProdType::ORIGINIUM_SHARD;
+    case data::player::ManufactureFormulaId::ORIGINIUM_SHARD_ORIROCK:
+    case data::player::ManufactureFormulaId::ORIGINIUM_SHARD_DEVICE:
+        room->room_attributes.prod_type = model::buff::ProdType::ORIGINIUM_SHARD;
         break;
 
     default:
-        room->room_attributes.prod_type = ProdType::CHIP;
+        room->room_attributes.prod_type = model::buff::ProdType::CHIP;
         break;
     }
 
     return room;
 }
 
-static std::unique_ptr<RoomModel> RoomFactory(const string &id, const bm::PlayerBuildingTrading &trading_room,
-                                              int level)
+static std::unique_ptr<model::buff::RoomModel> RoomFactory(
+    const std::string &id, const data::player::PlayerBuildingTrading &trading_room, int level)
 {
-    auto room = std::make_unique<RoomModel>();
-    room->type = bm::RoomType::TRADING;
+    auto room = std::make_unique<model::buff::RoomModel>();
+    room->type = data::building::RoomType::TRADING;
     room->id = id;
     room->max_slot_count = level;
     room->room_attributes.base_char_cost = 1;
@@ -111,11 +149,23 @@ static std::unique_ptr<RoomModel> RoomFactory(const string &id, const bm::Player
     return room;
 }
 
-[[maybe_unused]] static void GenTestModePlayerData(PlayerDataModel &player_data, const bm::BuildingData &building_data)
+static std::unique_ptr<model::buff::RoomModel> RoomFactory(const CustomRoomData& room_data)
+{
+    auto room = std::make_unique<model::buff::RoomModel>();
+    room->type = room_data.type;
+    room->id = room_data.identifier;
+    room->max_slot_count = room_data.max_slot_cnt;
+    room->room_attributes = room_data.room_attributes;
+
+    return room;
+}
+
+[[maybe_unused]] static void GenTestModePlayerData(data::player::PlayerDataModel &player_data,
+                                                   const data::building::BuildingData &building_data)
 {
     LOG_W("Worker is running under testing mode. All data will be generated to max level.");
     int inst_id_counter = (int)player_data.troop.chars.size();
-    std::unordered_set<string> char_ids;
+    std::unordered_set<std::string> char_ids;
     std::transform(player_data.troop.chars.begin(), player_data.troop.chars.end(),
                    std::inserter(char_ids, char_ids.end()), [](const auto &pair) { return pair.second->char_id; });
 
@@ -123,12 +173,12 @@ static std::unique_ptr<RoomModel> RoomFactory(const string &id, const bm::Player
     {
         if (!char_ids.count(id))
         {
-            auto dummy_char = std::make_unique<PlayerCharacter>();
+            auto dummy_char = std::make_unique<data::player::PlayerCharacter>();
             dummy_char->char_id = id;
             dummy_char->inst_id = ++inst_id_counter;
             player_data.troop.chars.insert({id, std::move(dummy_char)});
 
-            auto dummy_building_char = std::make_unique<bm::PlayerBuildingChar>();
+            auto dummy_building_char = std::make_unique<data::player::PlayerBuildingChar>();
             dummy_building_char->char_id = id;
             player_data.building.chars.insert({id, std::move(dummy_building_char)});
         }
@@ -136,7 +186,7 @@ static std::unique_ptr<RoomModel> RoomFactory(const string &id, const bm::Player
 
     for (auto &[id, player_char] : player_data.troop.chars)
     {
-        player_char->evolve_phase = EvolvePhase::PHASE_2;
+        player_char->evolve_phase = data::EvolvePhase::PHASE_2;
         player_char->level = 90;
     }
 
@@ -149,9 +199,9 @@ static std::unique_ptr<RoomModel> RoomFactory(const string &id, const bm::Player
 class WorkerParams
 {
   public:
-    WorkerParams(const PlayerDataModel &player_data, const bm::BuildingData &building_data)
+    WorkerParams(const data::player::PlayerDataModel &player_data, const data::building::BuildingData &building_data)
     {
-        PlayerTroopLookup lookup(player_data.troop);
+        data::player::PlayerTroopLookup lookup(player_data.troop);
 
         for (const auto &[inst_id, player_char] : player_data.troop.chars)
         {
@@ -168,13 +218,13 @@ class WorkerParams
                 continue;
             }
 
-            const auto op = new OperatorModel(*player_char, *player_data.building.chars.at(inst_id));
+            const auto op = new model::OperatorModel(*player_char, *player_data.building.chars.at(inst_id));
             op->Empower(lookup, *player_char, building_data);
             operators_.emplace_back(op);
         }
 
-        Dictionary<string, int> room_level_map;
-        GlobalAttributeFields global_attr = GlobalAttributeFactory(player_data.building);
+        Dictionary<std::string, int> room_level_map;
+        model::buff::GlobalAttributeFields global_attr = GlobalAttributeFactory(player_data.building);
 
         for (const auto &[id, slot] : player_data.building.room_slots)
         {
@@ -185,53 +235,110 @@ class WorkerParams
         {
             auto room = RoomFactory(id, manu_room, room_level_map[id]);
             room->global_attributes = global_attr;
-            AddRoom(bm::RoomType::MANUFACTURE, std::move(room));
+            AddRoom(data::building::RoomType::MANUFACTURE, std::move(room));
         }
 
         for (const auto &[id, trade_room] : player_data.building.player_building_room.trading)
         {
             auto room = RoomFactory(id, trade_room, room_level_map[id]);
             room->global_attributes = global_attr;
-            AddRoom(bm::RoomType::TRADING, std::move(room));
+            AddRoom(data::building::RoomType::TRADING, std::move(room));
         }
     }
 
-    void UpdateGlobalAttributes(const GlobalAttributeFields &global_attr) const
+    WorkerParams(const CustomPackedInput &custom_input, const data::building::BuildingData& building_data)
+    {
+        Vector<std::pair<int, std::string>> char_ids;
+        UInt32 inst_id_counter = 0;
+        for (const auto& custom_char : custom_input.characters)
+        {
+            if (!custom_char.resolved_char_id.empty())
+                char_ids.emplace_back(++inst_id_counter, custom_char.resolved_char_id);
+
+            std::string id = !custom_char.resolved_char_id.empty()
+                        ? custom_char.resolved_char_id
+                        : custom_char.identifier;
+            auto op = std::make_unique<model::OperatorModel>(inst_id_counter, id, 3600. * custom_char.morale);
+            operators_.emplace_back(std::move(op));
+        }
+
+        data::player::PlayerTroopLookup lookup(char_ids);
+
+        for (UInt32 i = 0; i < custom_input.characters.size(); ++i)
+        {
+            const auto& custom_char = custom_input.characters[i];
+            const auto& op = operators_[i];
+            const auto& [inst_id, char_id] = char_ids[i];
+            if (custom_char.is_regular_character)
+            {
+                data::player::PlayerCharacter player_char;
+                player_char.inst_id = inst_id;
+                player_char.char_id = char_id;
+                player_char.level = custom_char.level;
+                player_char.evolve_phase = custom_char.phase;
+
+                op->Empower(lookup, player_char, building_data);
+            }
+            else
+            {
+                for (const auto &buff_id : custom_char.resolved_skill_ids)
+                {
+                    if (!op->AddBuff(lookup, building_data, buff_id))
+                        LOG_W("Unable to add buff to operator! : ", buff_id, " Operator ID : ", custom_char.identifier);
+                }
+                op->ResolvePatches();
+            }
+
+            if (op->buffs.empty())
+            {
+                LOG_E("Operator has no buffs! : ", custom_char.identifier);
+            }
+        }
+
+        for (const auto& custom_room : custom_input.rooms)
+        {
+            auto room = RoomFactory(custom_room);
+            room->global_attributes = custom_input.global_data.global_attributes;
+            AddRoom(custom_room.type, std::move(room));
+        }
+    }
+
+    void UpdateGlobalAttributes(const model::buff::GlobalAttributeFields &global_attr) const
     {
         for (const auto &rooms : rooms_map_)
             for (const auto &room : rooms)
                 room->global_attributes = global_attr;
     }
 
-    [[nodiscard]] const PtrVector<RoomModel> &GetRoomsOfType(bm::RoomType type) const
+    [[nodiscard]] const mem::PtrVector<model::buff::RoomModel> &GetRoomsOfType(data::building::RoomType type) const
     {
-        if (UInt32 type_val = static_cast<UInt32>(type), idx = ctz(type_val);
-            is_pow_of_two(type_val) && idx > 0 && idx < static_cast<UInt32>(rooms_map_.size()))
+        if (UInt32 type_val = static_cast<UInt32>(type), idx = util::ctz(type_val);
+            util::is_pow_of_two(type_val) && idx > 0 && idx < static_cast<UInt32>(rooms_map_.size()))
         {
             return rooms_map_[idx];
         }
         else
         {
-            LOG_E("Invalid room type: 0b", to_bin_string(type_val));
-            return PtrVector<RoomModel>::Default();
+            LOG_E("Invalid room type: 0b", util::to_bin_string(type_val));
+            return mem::PtrVector<model::buff::RoomModel>::Default();
         }
     }
 
-    [[nodiscard]] const PtrVector<OperatorModel> &GetOperators() const
+    [[nodiscard]] const mem::PtrVector<model::OperatorModel> &GetOperators() const
     {
         return operators_;
     }
 
   private:
     PlayerBuildingRoomMap rooms_map_;
-    PtrVector<OperatorModel> operators_;
+    mem::PtrVector<model::OperatorModel> operators_;
 
-    [[nodiscard]] static int GetRoomTypeIndex(const bm::RoomType type)
+    [[nodiscard]] static int GetRoomTypeIndex(const data::building::RoomType type)
     {
-        return ctz(static_cast<UInt32>(type));
+        return util::ctz(static_cast<UInt32>(type));
     }
 
-    void AddRoom(const bm::RoomType type, std::unique_ptr<RoomModel> &&room)
+    void AddRoom(const data::building::RoomType type, std::unique_ptr<model::buff::RoomModel> &&room)
     {
         rooms_map_[GetRoomTypeIndex(type)].emplace_back(std::move(room));
     }

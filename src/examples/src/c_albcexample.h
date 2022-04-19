@@ -1,8 +1,3 @@
-//
-// Created by Nonary on 2022/4/3.
-//
+#pragma once
 
-#ifndef ALBC_C_ALBCEXAMPLE_H
-#define ALBC_C_ALBCEXAMPLE_H
-
-#endif //ALBC_C_ALBCEXAMPLE_H
+void c_albc_example_main();
