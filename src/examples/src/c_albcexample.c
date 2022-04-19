@@ -164,7 +164,6 @@ void c_albc_example_main()
         {
             AlbcString *char_id = char_ids_array[j];
             printf("\t-%s\n", AlbcStringGetContent(char_id));
-            AlbcStringDestroy(char_id);
         }
 
         free(char_ids_array);
