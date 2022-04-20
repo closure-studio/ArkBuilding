@@ -19,7 +19,7 @@
 #   define ALBC_E_PTR AlbcException **e_ptr = nullptr
 #endif
 
-#define ALBC_API(ret) ALBC_MAYBE_UNUSED ALBC_EXPORT ret
+#define ALBC_API ALBC_MAYBE_UNUSED ALBC_EXPORT
 
 #define ALBC_PIMPL                                                                                                     \
   public:                                                                                                              \
@@ -42,9 +42,9 @@ namespace albc
 template <typename T>
 using RefPtr = T*;
 
-ALBC_NODISCARD ALBC_API (void*) malloc(std::size_t size) noexcept;
-ALBC_API (void) free(void* ptr) noexcept;
-ALBC_NODISCARD ALBC_API (void*) realloc(void* ptr, std::size_t size) noexcept;
+ALBC_NODISCARD ALBC_API void* malloc(std::size_t size) noexcept;
+ALBC_API void free(void* ptr) noexcept;
+ALBC_NODISCARD ALBC_API void* realloc(void* ptr, std::size_t size) noexcept;
 
 template <typename T>
 struct FwdIterator
@@ -69,9 +69,9 @@ struct FwdIterator
 
 struct ICollectionBase
 {
-    ALBC_NODISCARD ALBC_API(virtual int) GetCount() const noexcept = 0;
-    ALBC_API(virtual void) ForEach(AlbcForEachCallback callback, void* user_data) const noexcept = 0;
-    ALBC_API(virtual) ~ICollectionBase() noexcept = default;
+    ALBC_NODISCARD ALBC_API virtual int GetCount() const noexcept = 0;
+    ALBC_API virtual void ForEach(AlbcForEachCallback callback, void* user_data) const noexcept = 0;
+    ALBC_API virtual ~ICollectionBase() noexcept = default;
 
     ALBC_MEM_DELEGATE
 };
@@ -83,11 +83,11 @@ struct ICollection : public ICollectionBase
     using iterator = TIter<T>;
     using value_type = T;
 
-    ALBC_NODISCARD ALBC_API (virtual const_iterator) begin() const noexcept = 0;
-    ALBC_NODISCARD ALBC_API (virtual const_iterator) end() const noexcept = 0;
-    ALBC_NODISCARD ALBC_API (virtual iterator) begin() noexcept = 0;
-    ALBC_NODISCARD ALBC_API (virtual iterator) end() noexcept = 0;
-    ALBC_NODISCARD ALBC_API (int) GetCount() const noexcept override
+    ALBC_NODISCARD ALBC_API virtual const_iterator begin() const noexcept = 0;
+    ALBC_NODISCARD ALBC_API virtual const_iterator end() const noexcept = 0;
+    ALBC_NODISCARD ALBC_API virtual iterator begin() noexcept = 0;
+    ALBC_NODISCARD ALBC_API virtual iterator end() noexcept = 0;
+    ALBC_NODISCARD ALBC_API int GetCount() const noexcept override
     {
         int count = 0;
         for (auto it = begin(); it != end(); ++it)
@@ -110,17 +110,17 @@ struct ICollection : public ICollectionBase
 struct String
 {
   public:
-    ALBC_API (explicit) String() noexcept;
-    ALBC_API (explicit) String(const char *str) noexcept;
-    ALBC_API () String(const String &str) noexcept;
-    ALBC_API () String(String &&str) noexcept;
-    ALBC_API () ~String() noexcept;
+    ALBC_API explicit String() noexcept;
+    ALBC_API explicit String(const char *str) noexcept;
+    ALBC_API String(const String &str) noexcept;
+    ALBC_API String(String &&str) noexcept;
+    ALBC_API ~String() noexcept;
 
-    ALBC_API (String&) operator=(const char *str) noexcept;
-    ALBC_API (String&) operator=(const String &str) noexcept;
-    ALBC_API (String&) operator=(String &&str) noexcept;
-    ALBC_NODISCARD ALBC_API (const char*) c_str() const noexcept;
-    ALBC_NODISCARD ALBC_API (size_t) size() const noexcept;
+    ALBC_API String& operator=(const char *str) noexcept;
+    ALBC_API String& operator=(const String &str) noexcept;
+    ALBC_API String& operator=(String &&str) noexcept;
+    ALBC_NODISCARD ALBC_API const char* c_str() const noexcept;
+    ALBC_NODISCARD ALBC_API size_t size() const noexcept;
 
     ALBC_PIMPL
     ALBC_MEM_DELEGATE

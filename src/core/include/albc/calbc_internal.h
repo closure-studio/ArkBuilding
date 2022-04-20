@@ -16,7 +16,7 @@
 #endif
 
 #ifdef _WIN32
-#   define CALBC_API(ret) CALBC_MAYBE_UNUSED ret __cdecl ALBC_EXPORT
+#   define CALBC_API CALBC_MAYBE_UNUSED __cdecl ALBC_EXPORT
 #else
-#   define CALBC_API(ret) CALBC_MAYBE_UNUSED ret
+#   define CALBC_API CALBC_MAYBE_UNUSED
 #endif

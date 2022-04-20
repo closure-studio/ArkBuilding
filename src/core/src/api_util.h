@@ -10,60 +10,7 @@
 #include <stdexcept>
 
 //#define ALBC_OBJECT_HANDLE_DEBUG
-#ifdef ALBC_OBJECT_HANDLE_DEBUG
-inline static std::set<void*> object_handles;
-inline static albc::Vector<std::string> error_messages;
-inline static std::mutex object_handles_mutex;
-inline static void dump_leaked_object_handles() {
-    if (!error_messages.empty()) {
-        std::cerr << "Error messages: " << std::endl;
-        for (auto& msg : error_messages) {
-            std::cerr << msg << std::endl;
-        }
-        error_messages.clear();
-    }
-
-    if (object_handles.empty()) {
-        std::cout << "No leaked object handles" << std::endl;
-        return;
-    }
-    std::cerr << "leaked object handles: ";
-    for (auto& handle : object_handles) {
-        std::cerr << handle << " ";
-    }
-    std::cerr << std::endl;
-}
-inline static void on_object_handle_create(void* handle) {
-    std::lock_guard<std::mutex> lock(object_handles_mutex);
-    auto it = object_handles.find(handle);
-    if (it != object_handles.end()) {
-        std::stringstream error_message;
-        error_message << "Obj handle: object handle " << handle << " already exists";
-        error_messages.push_back(error_message.str());
-        std::cerr << error_message.str() << std::endl;
-    } else {
-        object_handles.insert(handle);
-    }
-    static std::once_flag dump_leak_flag;
-    std::call_once(dump_leak_flag, []() {
-        atexit(dump_leaked_object_handles);
-    });
-    std::cout << "Obj handle: [+] " << handle << std::endl;
-}
-inline static void on_object_handle_destroy(void* handle) {
-    std::lock_guard<std::mutex> lock(object_handles_mutex);
-    auto it = object_handles.find(handle);
-    if (it != object_handles.end()) {
-        object_handles.erase(it);
-    } else {
-        std::stringstream error_message;
-        error_message << "Obj handle: trying to destroy a non-existing handle: " << handle;
-        error_messages.push_back(error_message.str());
-        std::cerr << error_message.str() << std::endl;
-    }
-    std::cout << "Obj handle: [-] " << handle << std::endl;
-}
-#endif
+// uncomment to print debug info on handle creation/destruction
 
 #define CALBC_HANDLE_IMPL(name, type)                                                                                  \
     struct name : public AlbcObjectHandle<type>                                                                        \

@@ -124,7 +124,7 @@ void c_albc_example_main()
         ALBC_CHECK(char_fail, AlbcModelAddChar(model, c, &e), e);
         printf("%s: added\n", names[i]);
     char_fail:
-        AlbcCharacterDestroy(c); // 对象所有权已移交给model，释放对象引用。
+        AlbcCharacterDel(c); // 对象所有权已移交给model，释放对象引用。
     }
 
     const int room_cnt = ARRAY_ELEMS(room_names);
@@ -145,7 +145,7 @@ void c_albc_example_main()
         ALBC_CHECK(room_fail, AlbcModelAddRoom(model, room, &e), e);
         printf("%s: added\n", room_names[i]);
     room_fail:
-        AlbcRoomDestroy(room); // 同上
+        AlbcRoomDel(room); // 同上
     }
 
     ALBC_CHECK(model_fail, AlbcModelSetDblParam(model, ALBC_MODEL_PARAM_DURATION, 3600 * 16, &e), e);
@@ -164,7 +164,7 @@ void c_albc_example_main()
                AlbcStringGetContent(room_id),
                AlbcRoomResultGetScore(room_res),
                AlbcRoomResultGetDuration(room_res));
-        AlbcStringDestroy(room_id);
+        AlbcStringDel(room_id);
 
         AlbcCollection *char_ids = AlbcRoomResultGetCharacterIdentifiers(room_res);
         ALBC_COLLECTION_TO_ARRAY(AlbcString *, char_ids, char_ids_array, char_id_cnt)
@@ -175,16 +175,16 @@ void c_albc_example_main()
         }
 
         free(char_ids_array);
-        AlbcCollectionDestroy(char_ids);
+        AlbcCollectionDel(char_ids);
     }
     free(room_result_arr);
-    AlbcCollectionDestroy(room_results);
+    AlbcCollectionDel(room_results);
 
 result_fail:
-    AlbcResultDestroy(result);
+    AlbcResultDel(result);
 
 model_fail:
-    AlbcModelDestroy(model);
+    AlbcModelDel(model);
 
 assets_fail:
     AlbcFlushLog(NULL);
