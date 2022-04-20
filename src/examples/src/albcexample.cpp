@@ -39,6 +39,7 @@ void run()
 #ifdef _WIN32
     albc::SetGlobalLocale("gbk");
 #endif
+    albc::SetLogLevel(ALBC_LOG_LEVEL_INFO);
     albc::InitCharacterTableFromFile("../test/character_table.json", THROW_ON_ALBC_ERROR);
     albc::InitBuildingDataFromFile("../test/building_data.json", THROW_ON_ALBC_ERROR);
     std::ifstream player_data("../test/player_data.json");
