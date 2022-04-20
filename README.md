@@ -1,22 +1,24 @@
 # ArkBuilding 明日方舟基建排班计算器
 ## 简介
 （项目内部缩写 ALBC: Albc-Like Building Calculator）
-  
+
+该项目是为明日方舟自动化脚本开发的基建计算库。
+
 支持基于 Buff 和干员的建模进行单房间中一定时间内产能的模拟，并枚举出多个房间中模型的所有组合。
 将组合加入到整数规划模型后可求出多房间产能总和最大的方案。
 
 对于不便建模的情况（如多房间联动等），同样可创建特化组合模板将组合加入到整数规划模型中参与求解。
 
-项目目前有支持 CMake 构建的 C++ 源码、命令行程序和可通过 C/C++ API 调用的静态库、动态库供集成。
-
 ## 特点
 * 高性能：使用 Cbc 求解器
 * 高产能：大多数情况比贪心算法更优
 
-## 计算流程图
-![](img/arkbuilding.png)
+## 使用
+项目目前提供了支持 CMake 构建的 C++ 源码、 命令行程序（WIP）和可通过 C/C++ API 调用的库供集成。
 
 ## 模型
+[计算流程图](img/arkbuilding.png)
+
 // TODO: 模型
 
 ## 目前局限
@@ -88,6 +90,8 @@ $ albccli -p test/player_data.json -g test/building_data.json -m ONCE -l INFO -L
 ## API 使用
 [API 示例](https://github.com/closure-studio/ArkBuilding/tree/main/src/examples/src)
 
+API 接口使用方法见 API 头文件。
+
 ## 构建源码（目前在 CMake + Windows MSYS2 MinGW / Linux GCC, x64 / ARM64 上经过测试） 
 1. 环境
    * GCC 9.0+
@@ -112,6 +116,7 @@ $ albccli -p test/player_data.json -g test/building_data.json -m ONCE -l INFO -L
 * [open-source-parsers/jsoncpp](https://github.com/open-source-parsers/jsoncpp)
 * [cameron314/concurrentqueue](https://github.com/cameron314/concurrentqueue)
 * [Fytch/ProgramOptions.hxx](https://github.com/Fytch/ProgramOptions.hxx)
+* [bombela/backward-cpp](https://github.com/bombela/backward-cpp)
 
 ## License
 // TODO: license
