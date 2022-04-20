@@ -155,14 +155,6 @@ int main(const int argc, char *argv[])
         read_file_to_ss(character_table, character_table_json);
         albc::InitCharacterTableFromJson(character_table_json.str().c_str());
         albc::InitBuildingDataFromJson(game_data_json.str().c_str());
-
-        const char* skills[] = {u8"“等不及”", u8"“都想要”"};
-        std::unique_ptr<albc::ICharQuery> query1(albc::QueryChar(2, skills));
-        std::printf("OK:%d ID:%s Name:%s E:%d LVL:%d\n", +query1->IsValid(), query1->Id().c_str(), query1->Name().c_str(), query1->Phase(), query1->Level());
-
-        std::unique_ptr<albc::ICharQuery> query2(albc::QueryChar("默契", "德克萨斯"));
-        std::printf("OK:%d ID:%s Name:%s E:%d LVL:%d\n", +query2->IsValid(), query2->Id().c_str(), query2->Name().c_str(), query2->Phase(), query2->Level());
-
         std::cout << "Reading player data file: " << player_data << std::endl;
         read_file_to_ss(player_data, player_data_json);
 
