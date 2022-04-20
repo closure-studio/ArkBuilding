@@ -291,7 +291,7 @@ class WorkerParams
 
             if (op->buffs.empty())
             {
-                LOG_E("Operator has no buffs! : ", custom_char.identifier);
+                LOG_W("Operator has no buffs! : ", custom_char.identifier);
             }
         }
 

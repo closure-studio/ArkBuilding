@@ -73,6 +73,12 @@ void CombMaker::MakeComb(const Vector<model::OperatorModel *> &operators, UInt32
         return;
     }
 
+    if (operators.empty())
+    {
+        LOG_E("No operators for room: ", room->id);
+        return;
+    }
+
     max_n = std::min(max_n, static_cast<UInt32>(operators.size()));
     std::bitset<model::buff::kAlgOperatorSize> all_ops;
     all_ops.flip();
@@ -615,7 +621,6 @@ void MultiRoomIntegerProgramming::GenCombForRooms(Vector<Vector<SolutionData>> &
         if (inbound_ops_.empty())
         {
             LOG_W("No inbound operators for room#", room->id);
-            continue;
         }
 
         AllSolutionHolder solution_holder;
@@ -624,7 +629,6 @@ void MultiRoomIntegerProgramming::GenCombForRooms(Vector<Vector<SolutionData>> &
         if (solution_holder.solutions.empty())
         {
             LOG_W("No solution for room ", room->id);
-            continue;
         }
 
         room_ranges.push_back(col_cnt);

@@ -32,7 +32,10 @@
 
 #define ARRAY_ELEMS(x) (sizeof(x) / sizeof(x[0]))
 
-const char *names[] = {u8"能天使", u8"德克萨斯", u8"拉普兰德", u8"孑", u8"雪雉", u8"空弦"};
+const char *names[] = {
+    u8"能天使", u8"德克萨斯", u8"拉普兰德",
+    u8"孑", u8"雪雉", u8"空弦",
+    u8""};
 
 const char *skill_lists[][2] = {
     {u8"物流专家", u8""}, {u8"恩怨", u8"默契"},   {u8"醉翁之意·β", u8""},
@@ -164,7 +167,6 @@ void c_albc_example_main()
         {
             AlbcString *char_id = char_ids_array[j];
             printf("\t-%s\n", AlbcStringGetContent(char_id));
-            AlbcStringDestroy(char_id);
         }
 
         free(char_ids_array);

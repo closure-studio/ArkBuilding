@@ -7,7 +7,7 @@
 
 对于不便建模的情况（如多房间联动等），同样可创建特化组合模板将组合加入到整数规划模型中参与求解。
 
-项目目前有支持 CMake 构建的 C++ 源码、命令行程序和可通过 C API 调用的静态库、动态库供集成。
+项目目前有支持 CMake 构建的 C++ 源码、命令行程序和可通过 C/C++ API 调用的静态库、动态库供集成。
 
 ## 特点
 * 高性能：使用 Cbc 求解器
@@ -77,16 +77,16 @@ Available options:
 | SEQUENTIAL | 依次运行的测试次数 |
 | PARALLEL   | 并行运行的测试次数 |
 
-例：
+例（测试数据位于`test/`目录中）：
 ```console
-$ albccli -p ./test/player_data.json -g ./test/building_data.json -m ONCE -l INFO -L -S -P 0
+$ albccli -p test/player_data.json -g test/building_data.json -m ONCE -l INFO -L -S -P
 ```
 该命令将运行一次测试，并将包含描述整数规划问题的 .lp 格式文件、全部组合的详细信息输出到工作目录。
 
 // TODO: More info
 
 ## API 使用
-// TODO: API
+[API 示例](https://github.com/closure-studio/ArkBuilding/tree/main/src/examples/src)
 
 ## 构建源码（目前在 CMake + Windows MSYS2 MinGW / Linux GCC, x64 / ARM64 上经过测试） 
 1. 环境
@@ -104,8 +104,7 @@ $ albccli -p ./test/player_data.json -g ./test/building_data.json -m ONCE -l INF
    * "albccli" : 命令行程序
    * "albc" : 动态库
    * "albc_static" : 静态库
-
-// TODO: MSVC linking
+   * "albcexample" : API示例，见[此处](#API-使用)
 
 ## 项目中使用的第三方库及资源
 * [Kengxxiao/ArknightsGameData](https://github.com/Kengxxiao/ArknightsGameData) （干员数据、基建数据）
