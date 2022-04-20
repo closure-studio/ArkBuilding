@@ -81,7 +81,7 @@ Available options:
 
 例（测试数据位于`test/`目录中）：
 ```console
-$ albccli -p test/player_data.json -g test/building_data.json -m ONCE -l INFO -L -S -P
+$ albccli -p test/player_data.json -g test/building_data.json -c test/character_table.json -m ONCE -l INFO -L -S
 ```
 该命令将运行一次测试，并将包含描述整数规划问题的 .lp 格式文件、全部组合的详细信息输出到工作目录。
 

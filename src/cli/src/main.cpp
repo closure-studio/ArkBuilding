@@ -136,6 +136,11 @@ int main(const int argc, char *argv[])
             std::cerr << "must specify the path to building data file!" << std::endl;
             throw std::invalid_argument("gamedata");
         }
+        if (character_table.empty())
+        {
+            std::cerr << "must specify the path to character table file!" << std::endl;
+            throw std::invalid_argument("character-table");
+        }
         if (test_enabled && test_mode != ALBC_TEST_MODE_ONCE && !parser["test-param"].was_set())
         {
             std::cerr << "must specify the test param!" << std::endl;
