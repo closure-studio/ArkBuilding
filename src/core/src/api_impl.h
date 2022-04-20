@@ -493,6 +493,7 @@ class Model::Impl
     Vector<Character*> characters_;
     Vector<Room*> rooms_;
     ModelCreateType create_type_;
+    std::unordered_map<std::string, std::string> resolved_char_id_to_orig_identifier_map_;
 
   public:
     explicit Impl(const Json::Value &player_data_json)
@@ -542,6 +543,11 @@ class Model::Impl
     void AddCharacter(Character *character)
     {
         characters_.push_back(character);
+        auto& char_data = *character->impl();
+        if (char_data.CheckPrepared() && char_data.resolved_char_id != char_data.identifier)
+        {
+            resolved_char_id_to_orig_identifier_map_[char_data.resolved_char_id] = char_data.identifier;
+        }
     }
 
     void AddRoom(Room *room)
@@ -552,6 +558,11 @@ class Model::Impl
     void RemoveCharacter(Character *character)
     {
         characters_.erase(std::remove(characters_.begin(), characters_.end(), character), characters_.end());
+        auto& char_data = *character->impl();
+        if (char_data.CheckPrepared() && char_data.resolved_char_id != char_data.identifier)
+        {
+            resolved_char_id_to_orig_identifier_map_.erase(char_data.resolved_char_id);
+        }
     }
 
     void RemoveRoom(Room *room)
@@ -671,7 +682,17 @@ class Model::Impl
             for (const auto* op: alg_room_result.solution.operators)
             {
                 if(op)
-                    ops->emplace_back(op->char_id.c_str());
+                {
+                    auto it = resolved_char_id_to_orig_identifier_map_.find(op->char_id);
+                    if (it != resolved_char_id_to_orig_identifier_map_.end())
+                    {
+                        ops->emplace_back(it->second.c_str());
+                    }
+                    else
+                    {
+                        ops->emplace_back(op->char_id.c_str());
+                    }
+                }
             }
             auto* room_result = new RoomResultImpl(
                 String(alg_room_result.room->id.c_str()),
