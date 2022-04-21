@@ -1,5 +1,5 @@
 # ArkBuilding 明日方舟基建排班计算器
-交流群：603525846
+交流群：[603525846](https://jq.qq.com/?_wv=1027&k=Lc4UEoAe)
 ## 简介
 （项目内部缩写 ALBC: Albc-Like Building Calculator）
 
