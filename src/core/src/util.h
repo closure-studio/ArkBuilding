@@ -1,5 +1,5 @@
 #pragma once
-#include "primitive_types.h"
+#include "albc_types.h"
 #include <cmath>
 #include <cstdint>
 #include <iostream>
@@ -127,6 +127,8 @@ namespace albc::util
         static constexpr size_t value = magic_enum::enum_count<T>();
     };
 
+    template <typename T> constexpr size_t enum_size_v = enum_size<T>::value;
+
     // join static strings at compile time
     template <std::string_view const &...Strs> struct join
     {
@@ -208,7 +210,7 @@ namespace albc::util
 
     // get ops_for_partial_comb time_t in MM-DD HH:MM:SS
     // uses chrono
-    static std::string GetReadableTime()
+    [[maybe_unused]] static std::string GetReadableTime()
     {
         auto now = std::chrono::system_clock::now();
         auto in_time_t = std::chrono::system_clock::to_time_t(now);
@@ -234,7 +236,7 @@ namespace albc::util
         return ret;
     }
 
-    static std::string get_current_thread_id()
+    [[maybe_unused]]  static std::string get_current_thread_id()
     {
         char buf[20];
         std::sprintf(buf, "%08X", static_cast<UInt32>(std::hash<std::thread::id>{}(std::this_thread::get_id())));
@@ -262,7 +264,7 @@ namespace albc::util
     std::string TypeName()
     {
         int status = 114514;
-        std::unique_ptr<char, void (*)(void *)> result(
+        std::unique_ptr<char, decltype(&std::free)> result(
             abi::__cxa_demangle(typeid(T).name(), nullptr, nullptr, &status), std::free);
 
         return (status == 0) ? result.get() : typeid(T).name();

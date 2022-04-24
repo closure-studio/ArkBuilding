@@ -1,4 +1,6 @@
 #pragma once
+#ifndef CALBC_INTERNAL_H
+#define CALBC_INTERNAL_H
 #include "albc_common.h"
 
 #define CALBC_HANDLE_DECL(name) \
@@ -20,3 +22,4 @@
 #else
 #   define CALBC_API CALBC_MAYBE_UNUSED
 #endif
+#endif // CALBC_INTERNAL_H

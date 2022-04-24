@@ -158,10 +158,14 @@ int main(const int argc, char *argv[])
         std::cout << "Reading game data file: " << game_data << std::endl;
         read_file_to_ss(game_data, game_data_json);
         read_file_to_ss(character_table, character_table_json);
-        albc::InitCharacterTableFromJson(character_table_json.str().c_str());
-        albc::InitBuildingDataFromJson(game_data_json.str().c_str());
+        //albc::InitCharacterTableFromJson(character_table_json.str().c_str());
+        //albc::InitBuildingDataFromJson(game_data_json.str().c_str());
         std::cout << "Reading player data file: " << player_data << std::endl;
         read_file_to_ss(player_data, player_data_json);
+
+        const char* skills[] = {u8"异格者", u8"热能充能·γ"};
+        std::unique_ptr<albc::ICharQuery> query1(albc::QueryChar(2, skills));
+        std::printf("OK:%d ID:%s Name:%s E:%d LVL:%d\n", +query1->IsValid(), query1->Id().c_str(), query1->Name().c_str(), query1->Phase(), query1->Level());
 
         if (test_enabled)
         {

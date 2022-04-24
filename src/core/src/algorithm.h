@@ -12,20 +12,20 @@ namespace albc::algorithm
  * @brief The Algorithm class
  *
  */
-class Algorithm
+class IAlgorithm
 {
   public:
-    virtual ~Algorithm() = default;
+    virtual ~IAlgorithm() = default;
 
-    Algorithm(const Vector<model::buff::RoomModel *> &rooms, const mem::PtrVector<model::OperatorModel> &operators,
+    IAlgorithm(const Vector<model::buff::RoomModel *> &rooms, const mem::PtrVector<model::OperatorModel> &operators,
               const AlbcSolverParameters &params)
         : rooms_(rooms), all_ops_(mem::unwrap_ptr_vector(operators)), params_(params)
     {
     }
 
-    Algorithm(const mem::PtrVector<model::buff::RoomModel> &rooms, const mem::PtrVector<model::OperatorModel> &operators,
+    IAlgorithm(const mem::PtrVector<model::buff::RoomModel> &rooms, const mem::PtrVector<model::OperatorModel> &operators,
               const AlbcSolverParameters &params)
-        : Algorithm(mem::unwrap_ptr_vector(rooms), operators, params)
+        : IAlgorithm(mem::unwrap_ptr_vector(rooms), operators, params)
     {
     }
 
@@ -61,13 +61,13 @@ class HardMutexResolver
     Vector<UInt32> group_pos_;
 };
 
-class CombMaker : public Algorithm
+class CombMaker : public IAlgorithm
 {
   public:
     void Run(AlgorithmResult &result) override;
 
   protected:
-    using Algorithm::Algorithm;
+    using IAlgorithm::IAlgorithm;
 
     template <typename TSolutionHolder>
     void MakePartialComb(const Vector<model::OperatorModel *> &operators, UInt32 max_n, model::buff::RoomModel *room,
@@ -96,15 +96,80 @@ class MultiRoomIntegerProgramming : public CombMaker
   public:
     using CombMaker::CombMaker;
 
-    void Run(AlgorithmResult &result) override;
+    void Run(AlgorithmResult &out_result) override;
 
   protected:
+    enum class RowType
+    {
+        NONE,
+        OP_CONS,
+        ROOM_CONS,
+        OP_MUTEX_CONS,
+    };
+
+    struct RowRange
+    {
+        size_t start = 0;
+        size_t length = 0;
+
+        [[nodiscard]] size_t End() const { return start + length; } // 左闭右开
+    };
+
+    struct RowRangeMap: private Array<RowRange, util::enum_size<RowType>::value>
+    {
+        static constexpr size_t kSize = util::enum_size<RowType>::value;
+        using Base = Array<RowRange, util::enum_size<RowType>::value>;
+        using Base::Base;
+
+        constexpr RowRange& operator[](RowType type)
+        {
+            return Base::operator[](static_cast<size_t>(type));
+        }
+
+        constexpr const RowRange& operator[](RowType type) const
+        {
+            return Base::operator[](static_cast<size_t>(type));
+        }
+
+        [[nodiscard]] constexpr bool IsOfType(size_t row, RowType type) const
+        {
+            return row >= operator[](type).start
+                   && row < operator[](type).start + operator[](type).length;
+        }
+
+        [[nodiscard]] constexpr RowType GetType(size_t row) const
+        {
+            for (size_t i = 0; i < kSize; ++i)
+            {
+                if (IsOfType(row, static_cast<RowType>(i)))
+                {
+                    return static_cast<RowType>(i);
+                }
+            }
+            return RowType::NONE;
+        }
+
+        [[nodiscard]] constexpr RowType GetType(size_t row, size_t& out_index) const
+        {
+            for (size_t i = 0; i < kSize; ++i)
+            {
+                if (IsOfType(row, static_cast<RowType>(i)))
+                {
+                    out_index = row - operator[](static_cast<RowType>(i)).start;
+                    return static_cast<RowType>(i);
+                }
+            }
+            return RowType::NONE;
+        }
+    };
+
     static void GenSolDetails(const Vector<model::buff::RoomModel *> &rooms, const Vector<Vector<SolutionData>> &room_solutions,
                               Vector<UInt32> &room_ranges, size_t col_cnt);
 
-    void GenLpFile(Vector<Vector<SolutionData>> &room_solutions, const Vector<double> &obj, UInt32 row_cnt,
-                   UInt32 col_cnt, const Vector<double> &elems, const Vector<int> &row_indices,
-                   Vector<int> &col_indices, UInt32 room_start_row, const Vector<double> &row_ub) const;
+    void GenLpFile(Vector<Vector<SolutionData>> &room_solutions, const Vector<double> &obj,
+                   UInt32 row_cnt, UInt32 col_cnt, const Vector<double> &elems,
+                   const Vector<int> &row_indices, Vector<int> &col_indices,
+                   const RowRangeMap& ranges, const Vector<double> &row_ub) const;
 
     void GenCombForRooms(Vector<Vector<SolutionData>> &room_solutions, Vector<UInt32> &room_ranges, UInt32 &col_cnt);
 

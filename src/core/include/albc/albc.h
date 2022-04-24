@@ -1,9 +1,13 @@
 // ALBC C++ API, which C API is based on.
 #pragma once
+#ifndef ALBC_H
+#define ALBC_H
 #include "albc_internal.h"
 
 namespace albc
 {
+ALBC_API String RunWithJsonParams(const char* json, ALBC_E_PTR);
+
 class Character
 {
   public:
@@ -132,6 +136,11 @@ class Model
     ALBC_MEM_DELEGATE
 };
 
+/**
+ *
+ * @param e
+ */
+
 // 释放异常。
 ALBC_API void FreeException(AlbcException *e) noexcept;
 
@@ -139,21 +148,11 @@ ALBC_API void FreeException(AlbcException *e) noexcept;
 ALBC_API bool SetGlobalLocale(const char* locale) noexcept;
 
 // 以下所有文件/JSON字符串输入函数需为UTF-8编码。
-
-// 设置全局干员数据（见 https://github.com/Kengxxiao/ArknightsGameData/blob/master/zh_CN/gamedata/excel/character_table.json）
-// 需要在进行求解前调用。重复设置会覆盖先前的数据。
-// CharacterTable需要先于BuildingData初始化，或者在只初始化BuildingData的情况下，初始化CharacterTable后再次初始化BuildingData。
-ALBC_API bool InitCharacterTableFromJson(const char *json, ALBC_E_PTR) noexcept;
-
-// 从文件中读取上述数据。
-ALBC_API bool InitCharacterTableFromFile(const char *file_path, ALBC_E_PTR) noexcept;
-
-// 设置全局基建数据（既 https://github.com/Kengxxiao/ArknightsGameData/blob/master/zh_CN/gamedata/excel/building_data.json
-// 文件中的数据）。需要在进行求解前调用。重复设置会覆盖先前的数据。
-ALBC_API bool InitBuildingDataFromJson(const char *json, ALBC_E_PTR) noexcept;
-
-// 从文件中读取上述数据。
-ALBC_API bool InitBuildingDataFromFile(const char *file_path, ALBC_E_PTR) noexcept;
+// https://github.com/Kengxxiao/ArknightsGameData/blob/master/zh_CN/gamedata/excel/building_data.json
+// https://github.com/Kengxxiao/ArknightsGameData/blob/master/zh_CN/gamedata/excel/character_table.json
+// https://github.com/Kengxxiao/ArknightsGameData/blob/master/zh_CN/gamedata/excel/char_meta_table.json
+ALBC_API void LoadGameDataJson(AlbcGameDataDbType data_type, const char* json, ALBC_E_PTR);
+ALBC_API void LoadGameDataFile(AlbcGameDataDbType data_type, const char* path, ALBC_E_PTR);
 
 // 根据单个技能的ID或名称查询角色。支持提供角色ID或名称来进行更加精确的查询。
 // 需要初始化BuildingData。如果使用角色名字作为char_key，或则需要在查询结果中获取角色名字，还需初始化CharacterTable。
@@ -188,3 +187,4 @@ ALBC_API void RunTest(const char *game_data_json, const char *player_data_json, 
 
 ALBC_API ICollection<String>* GetInfo(ALBC_E_PTR);
 } // namespace albc
+#endif // ALBC_H

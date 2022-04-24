@@ -1,13 +1,16 @@
 // ALBC API commons
 // Language: C
 // 该文件为 C API 与 C++ API 公用的部分
+#pragma once
+#ifndef _ALBC_COMMON_H_
+#define _ALBC_COMMON_H_
 #ifndef __cplusplus
 #include <stdbool.h>
-#endif
+#endif // __cplusplus
 
 #if defined(__MINGW32__) || defined(__CYGWIN__)
 #   define ALBC_CONFIG_WIN_GCC
-#endif
+#endif // defined(__MINGW32__) || defined(__CYGWIN__)
 
 #if defined(ALBC_CONFIG_WIN_GCC) && defined(ALBC_BUILD_DLL)
 #define ALBC_EXPORT __attribute__((dllexport))
@@ -15,12 +18,11 @@
 #define ALBC_EXPORT __attribute__((visibility("default")))
 #else
 #define ALBC_EXPORT
-#endif
+#endif // defined(ALBC_CONFIG_WIN_GCC) && defined(ALBC_BUILD_DLL)
 
-#pragma once
 #ifdef __cplusplus
 extern "C" {
-#endif
+#endif // __cplusplus
 
 typedef enum
 {
@@ -123,7 +125,18 @@ typedef enum
     ALBC_ROOM_PARAM_PRODUCT_TYPE = 1,
     ALBC_ROOM_PARAM_ORDER_TYPE = 2,
     ALBC_ROOM_PARAM_PRODUCT_COUNT = 3, // 包含产品及订单数量
+    ALBC_ROOM_PARAM_BASE_PRODUCT_CAP = 4, // 产品容量
+    ALBC_ROOM_PARAM_BASE_CHAR_COST = 5, // 基础角色心情消耗
+    ALBC_ROOM_PARAM_BASE_PROD_EFF = 6, // 基础生产效率
 } AlbcRoomParamType;
+
+typedef enum
+{
+    ALBC_GAME_DATA_DB_UNDEFINED = 0,
+    ALBC_GAME_DATA_DB_BUILDING_DATA = 1,  // building_data.json, UTF-8 encoded string
+    ALBC_GAME_DATA_DB_CHARACTER_TABLE = 2,// character_table_.json, UTF-8 encoded string
+    ALBC_GAME_DATA_DB_CHAR_META_TABLE = 3,// char_meta_table.json, UTF-8 encoded string
+} AlbcGameDataDbType;
 
 // log callback
 typedef void (*AlbcLogHandler)(const char * message);
@@ -132,4 +145,5 @@ typedef void (*AlbcForEachCallback)(int i, const void* item, void* user_data);
 
 #ifdef __cplusplus
 }
-#endif
+#endif // __cplusplus
+#endif // ALBC_COMMON_H

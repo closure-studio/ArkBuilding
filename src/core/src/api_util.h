@@ -1,9 +1,10 @@
 #pragma once
 #define ALBC_IS_INTERNAL
 #include "albc/albc_common.h"
-#include "primitive_types.h"
-#include "log_util.h"
-#include "exception_util.h"
+#include "albc_types.h"
+#include "util_log.h"
+#include "util_exception.h"
+#include "util_locale.h"
 
 #include <atomic>
 #include <cstring>
@@ -18,37 +19,9 @@
         using AlbcObjectHandle<type>::AlbcObjectHandle;                                                                \
     };
 
-static AlbcException *ThrowApiException(const std::string &msg)
-{
-    auto *e = new AlbcException();
-    e->what = new char[msg.length() + 1];
-    strcpy(e->what, msg.c_str());
-    return e;
-}
+AlbcException *ThrowApiException(const std::string &msg);
 
-[[maybe_unused]] static void TranslateException(AlbcException **ep, std::string &out_msg)
-{
-    try
-    {
-        std::rethrow_exception(std::current_exception());
-    }
-    catch (const std::exception &e)
-    {
-        if (ep)
-        {
-            *ep = ThrowApiException(e.what());
-        }
-        out_msg = e.what();
-    }
-    catch (...)
-    {
-        if (ep)
-        {
-            *ep = ThrowApiException("Unknown exception");
-        }
-        out_msg = "Unknown exception";
-    }
-}
+[[maybe_unused]] void TranslateException(AlbcException **ep, std::string &out_msg);
 
 #define ALBC_API_CATCH_AND_TRANSLATE_EXCEPTION(receiver, ...)                                                          \
     catch (...)                                                                                                        \

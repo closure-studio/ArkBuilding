@@ -1,8 +1,7 @@
 #pragma once
-#include "primitive_types.h"
-#include "buff_model.h"
-#include "operator_model.h"
-#include "operator_pattern.h"
+#include "albc_types.h"
+#include "model_buff.h"
+#include "model_operator.h"
 #include "algorithm_consts.h"
 
 namespace albc::algorithm

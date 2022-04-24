@@ -4,44 +4,18 @@
 #include <stdexcept>
 #include <fstream>
 #include "albc/albc.h"
+#include "util.h"
 
-struct AlbcExceptionDelegate
-{
-    AlbcException *e = nullptr;
-    AlbcException** operator()() { return &e; }
-
-    ~AlbcExceptionDelegate() noexcept(false)
-    {
-        if (!e)
-            return;
-
-        try
-        {
-            std::string msg(e->what);
-            albc::FreeException(e);
-            throw std::runtime_error(msg);
-        }
-        catch (...)
-        {
-            if (!std::uncaught_exceptions())
-                std::rethrow_exception(std::current_exception());
-        }
-    }
-    // 语言丁真，鉴定为：坏文明
-    // 推荐使用C风格的异常处理（详见C接口样例）
-    // 此处仅为了省事以及示例代码的简洁
-};
-
-#define THROW_ON_ALBC_ERROR AlbcExceptionDelegate()()
 
 void run()
 {
 #ifdef _WIN32
     albc::SetGlobalLocale("gbk");
 #endif
-    albc::SetLogLevel(ALBC_LOG_LEVEL_INFO);
-    albc::InitCharacterTableFromFile("../test/character_table.json", THROW_ON_ALBC_ERROR);
-    albc::InitBuildingDataFromFile("../test/building_data.json", THROW_ON_ALBC_ERROR);
+    albc::SetLogLevel(ALBC_LOG_LEVEL_ALL);
+    albc::LoadGameDataFile(ALBC_GAME_DATA_DB_CHARACTER_TABLE, "../test/character_table.json", THROW_ON_ALBC_ERROR);
+    albc::LoadGameDataFile(ALBC_GAME_DATA_DB_BUILDING_DATA, "../test/building_data.json", THROW_ON_ALBC_ERROR);
+    albc::LoadGameDataFile(ALBC_GAME_DATA_DB_CHAR_META_TABLE, "../test/char_meta_table.json", THROW_ON_ALBC_ERROR);
     std::ifstream player_data("../test/player_data.json");
     std::string player_data_str((std::istreambuf_iterator<char>(player_data)), std::istreambuf_iterator<char>());
     std::unique_ptr<albc::Model> model(albc::Model::FromJson(player_data_str.c_str(), THROW_ON_ALBC_ERROR));

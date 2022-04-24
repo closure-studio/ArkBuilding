@@ -1,5 +1,5 @@
 #pragma once
-#include "primitive_types.h"
+#include "albc_types.h"
 #include "algorithm_primitives.h"
 
 namespace albc::algorithm

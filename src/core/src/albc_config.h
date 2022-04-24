@@ -1,3 +1,4 @@
+#pragma once
 #define _CRT_SECURE_NO_WARNINGS
 
 #if !defined(__GNUC__) && !defined(__clang__) && defined(_MSC_VER)
@@ -8,8 +9,8 @@
 #   define __PRETTY_FUNCTION__ __FUNCSIG__
 #endif
 
-#define MAGIC_ENUM_RANGE_MIN 0
-#define MAGIC_ENUM_RANGE_MAX 256
+#define MAGIC_ENUM_RANGE_MIN -128
+#define MAGIC_ENUM_RANGE_MAX 127
 #include "magic_enum.hpp"
 
 #ifndef MAGIC_ENUM_SUPPORTED

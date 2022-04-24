@@ -1,7 +1,7 @@
 #include "algorithm.h"
-#include "flag_util.h"
-#include "locale_util.h"
-#include "simulator.h"
+#include "util_flag.h"
+#include "util_locale.h"
+#include "model_simulator.h"
 
 #include "CbcModel.hpp"
 #include "CoinModel.hpp"
@@ -11,10 +11,30 @@
 #include <fstream>
 #include <random>
 #include <regex>
+#include <unordered_set>
 
 
 namespace albc::algorithm
 {
+static void ResolveSpCharGroup(const Vector<model::OperatorModel*>& ops,
+                               Dictionary<std::string, Vector<UInt32 /* index of op */  >>& group_ops_map)
+{
+    group_ops_map.clear();
+    std::unordered_multiset<size_t> group_ops_set;
+    for (const auto* op: ops)
+        if (!op->sp_char_group.empty())
+            group_ops_set.insert(std::hash<std::string>()(op->sp_char_group));
+
+    for (size_t i = 0; i < ops.size(); ++i)
+    {
+        if (ops[i]->sp_char_group.empty()
+            || group_ops_set.count(std::hash<std::string>()(ops[i]->sp_char_group)) <= 1)
+            continue;
+
+        group_ops_map[ops[i]->sp_char_group].push_back(i);
+    }
+}
+
 std::string SolutionData::ToString() const
 {
     using namespace util;
@@ -56,7 +76,7 @@ std::string SolutionData::ToString() const
     return buf;
 }
 
-std::string Algorithm::GetSolutionInfo(const model::buff::RoomModel &room, const SolutionData &solution)
+std::string IAlgorithm::GetSolutionInfo(const model::buff::RoomModel &room, const SolutionData &solution)
 {
     std::string result;
     result.append("**** Solution ****\n").append(room.to_string()).append(solution.ToString());
@@ -84,7 +104,7 @@ void CombMaker::MakeComb(const Vector<model::OperatorModel *> &operators, UInt32
     all_ops.flip();
 
     HardMutexResolver mutex_handler(operators, room->type);
-    UInt32 calc_cnt = util::n_choose_k(mutex_handler.non_mutex_ops.size(), max_n);
+    UInt32 calc_cnt = std::max(util::n_choose_k(mutex_handler.non_mutex_ops.size(), max_n), 1ULL);
     auto mutex_cnt = mutex_handler.MutexCombCnt();
     calc_cnt += mutex_cnt * (util::n_choose_k(mutex_handler.ops_for_partial_comb.size(), max_n) -
                              calc_cnt); // 见MakePartialComb中防止重复计算部分
@@ -102,7 +122,7 @@ void CombMaker::MakeComb(const Vector<model::OperatorModel *> &operators, UInt32
     }
 }
 
-void Algorithm::FilterOperators(const model::buff::RoomModel *room)
+void IAlgorithm::FilterOperators(const model::buff::RoomModel *room)
 {
     inbound_ops_.clear();
 
@@ -136,6 +156,8 @@ ALBC_FLATTEN void CombMaker::MakePartialComb(const Vector<model::OperatorModel *
     // 该函数是由递归写法DFS到迭代写法DFS的转换
     // enabled_root_ops 为允许的DFS根节点，在原有排列组合（所有干员可用）基础上新增若干个干员后，
     // 将原先干员设为不可用，新干员设为可用，即可防止重复计算
+    if (operators.empty()) return;
+
     UInt32 size = operators.size();
     max_n = std::min(size, max_n);
     UInt32 calc_cnt = 0;
@@ -161,7 +183,7 @@ ALBC_FLATTEN void CombMaker::MakePartialComb(const Vector<model::OperatorModel *
                    });
 
     Array<model::OperatorModel *, kRoomMaxOperators> current = {}; // 当前递归选中的干员
-    double max_duration = Algorithm::params_.model_time_limit;
+    double max_duration = IAlgorithm::params_.model_time_limit;
     bool is_all_ops = enabled_root_ops.all();
 
     UInt32 dep = 0; // 当dep==max_n-1时，得到一个组合
@@ -263,59 +285,84 @@ HardMutexResolver::HardMutexResolver(const Vector<model::OperatorModel *> &ops, 
 {
     // HardMutex 干员互斥模型，假设处于一个互斥组中的干员不能同时出现在同一个房间中
     // 且一个干员最多只有一个互斥Buff，既只处于一个互斥组中
+    // 用于处理不能同时生效的Buff和异格干员
     static constexpr size_t buff_type_cnt = util::enum_size<model::buff::RoomBuffType>::value;
-    UInt32 buff_type_map[buff_type_cnt];
-    std::fill_n(buff_type_map, buff_type_cnt, buff_type_cnt);
+    UInt32 buff_type_mutex_group_map[buff_type_cnt];
+    Dictionary<std::string /*sp_char_group*/, UInt32> sp_char_group_mutex_group_map;
+    std::fill_n(buff_type_mutex_group_map, buff_type_cnt, UINT32_MAX);
 
-    int op_idx = -1;
-    for (const auto op : ops)
+    Dictionary<std::string, Vector<UInt32>> sp_char_group_map;
+    ResolveSpCharGroup(ops, sp_char_group_map);
+
+    for (const auto& [sp_char_group, op_indices] : sp_char_group_map)
     {
-        ++op_idx;
-        bool op_has_mutex_buff = false;
-
-        for (const auto buff : op->buffs)
+        auto it = sp_char_group_mutex_group_map.find(sp_char_group);
+        UInt32 sp_char_group_in_mutex_groups = UINT32_MAX;
+        if (it == sp_char_group_mutex_group_map.end())
         {
-            if (buff->room_type == room_type && buff->is_mutex)
-            {
-                if (op_has_mutex_buff)
-                {
-                    LOG_E("Logic error: operator ", op->char_id, " has more than one mutex buff");
-                    LOG_E("The buff: ", buff->buff_id, " will be ignored");
-                    continue;
-                }
-
-                auto &map_val = buff_type_map[static_cast<UInt32>(buff->inner_type)];
-                if (map_val >= buff_type_cnt)
-                {
-                    map_val = mutex_groups_.size();
-                    mutex_groups_.emplace_back();
-                }
-
-                mutex_groups_[map_val].push_back(op);
-
-                op_has_mutex_buff = true;
-            }
+            sp_char_group_in_mutex_groups = mutex_groups_.size();
+            mutex_groups_.emplace_back();
+            sp_char_group_mutex_group_map.emplace(sp_char_group, sp_char_group_in_mutex_groups);
+        }
+        else
+        {
+            sp_char_group_in_mutex_groups = it->second;
         }
 
-        if (op_has_mutex_buff)
+        for (auto op_idx: op_indices)
         {
+            mutex_groups_[sp_char_group_in_mutex_groups].push_back(ops[op_idx]);
             mutex_ops[op_idx] = true;
+        }
+    }
+
+    {
+        int op_idx = -1;
+        for (const auto op : ops)
+        {
+            ++op_idx;
+            bool op_is_mutex = mutex_ops[op_idx];
+            for (const auto buff : op->buffs)
+            {
+                if (buff->room_type == room_type && buff->is_mutex)
+                {
+                    if (op_is_mutex)
+                    {
+                        LOG_E("Logic error: operator ", op->char_id, " has more than one mutex buff or operator is SP char! "
+                                                                     "The buff: ", buff->buff_id, " will be ignored");
+                        continue;
+                    }
+
+                    auto &type_pos_in_mutex_groups = buff_type_mutex_group_map[static_cast<UInt32>(buff->inner_type)];
+                    if (type_pos_in_mutex_groups == UINT32_MAX)
+                    {
+                        type_pos_in_mutex_groups = mutex_groups_.size();
+                        mutex_groups_.emplace_back();
+                    }
+
+                    mutex_groups_[type_pos_in_mutex_groups].push_back(op);
+                    op_is_mutex = true;
+                }
+            }// TODO: 解决异格干员的Buff也可能是互斥Buff的问题
+
+            mutex_ops[op_idx] = op_is_mutex;
         }
     }
 
     for (const auto &group : mutex_groups_)
     {
-        ops_for_partial_comb.push_back(group[0]);
-    }
+        ops_for_partial_comb.push_back(group[0]);    }
 
-    op_idx = -1;
-    for (const auto op : ops)
     {
-        ++op_idx;
-        if (!mutex_ops[op_idx])
+        int op_idx = -1;
+        for (const auto op : ops)
         {
-            ops_for_partial_comb.push_back(op);
-            non_mutex_ops.push_back(op);
+            ++op_idx;
+            if (!mutex_ops[op_idx])
+            {
+                ops_for_partial_comb.push_back(op);
+                non_mutex_ops.push_back(op);
+            }
         }
     }
 
@@ -344,6 +391,7 @@ bool HardMutexResolver::MoveNext()
         }
 
         ops_for_partial_comb[group_idx] = group[cur_group_pos];
+
 
         group_idx++;
     }
@@ -404,9 +452,9 @@ void MultiRoomGreedy::Run(AlgorithmResult &result)
     }
 }
 
-void MultiRoomIntegerProgramming::Run(AlgorithmResult &result)
+void MultiRoomIntegerProgramming::Run(AlgorithmResult &out_result)
 {
-    result.Clear();
+    out_result.Clear();
     Vector<Vector<SolutionData>> room_solutions;
     Vector<UInt32> room_ranges;
     UInt32 total_solution_count = 0;
@@ -429,16 +477,58 @@ void MultiRoomIntegerProgramming::Run(AlgorithmResult &result)
      * max W = Σ(xi * wi)
      */
 
-    const UInt32 col_cnt = total_solution_count;
-    const UInt32 row_cnt = all_ops_.size() + rooms_.size();
-    const UInt32 room_start_row = all_ops_.size(); // 房间约束的起始索引
 
-    UInt32 elem_reserve_cnt = 0;
+    RowRangeMap row_range_map;
+    // 干员行定义
+    row_range_map[RowType::OP_CONS] = {
+        0,
+        all_ops_.size()
+    };
+    // 房间行定义
+    row_range_map[RowType::ROOM_CONS] = {
+        row_range_map[RowType::OP_CONS].End(),
+        rooms_.size()
+    };
+
+    // 构造干员inst_id到干员行的映射
+    Vector<UInt32> op_inst_id_to_op_row_map(model::buff::kAlgOperatorSize, 0);
+    for (UInt32 op_idx = 0; op_idx < all_ops_.size(); op_idx++)
+    {
+        op_inst_id_to_op_row_map[all_ops_[op_idx]->inst_id] = row_range_map[RowType::OP_CONS].start + op_idx;
+    }
+
+    // 建立异格干员行定义，构造从干员行到异格干员行的映射
+    UInt32 sp_group_cnt = 0;
+    UInt32 sp_op_elem_cnt = 0;
+    Vector<UInt32> op_row_to_sp_group_row_map(all_ops_.size(), UINT32_MAX);
+    {
+        Dictionary<std::string, Vector<UInt32>> sp_char_group_map;
+        ResolveSpCharGroup(all_ops_, sp_char_group_map);
+        auto sp_group_row_start_idx = row_range_map[RowType::ROOM_CONS].End();
+        sp_group_cnt = sp_char_group_map.size();
+
+        row_range_map[RowType::OP_MUTEX_CONS] = {
+            sp_group_row_start_idx,
+            sp_group_cnt
+        };
+
+        UInt32 group_idx = 0;
+        for (const auto &[sp_group, ops] : sp_char_group_map)
+        {
+            for (auto op_idx : ops)
+            {
+                op_row_to_sp_group_row_map[op_inst_id_to_op_row_map[all_ops_[op_idx]->inst_id]] = sp_group_row_start_idx + group_idx;
+            }
+            sp_op_elem_cnt += ops.size() * (all_ops_.size() - ops.size()); // 偏大，忽略了其他互斥组
+        }
+    }
+
+    const UInt32 col_cnt = total_solution_count;
+    const UInt32 row_cnt = all_ops_.size() + rooms_.size() + sp_group_cnt;
+    UInt32 elem_reserve_cnt = sp_op_elem_cnt;
     UInt32 elem_cnt = 0;
     for (int i = 0; i < (int)room_solutions.size(); ++i)
-    {
         elem_reserve_cnt += (1 + rooms_[i]->max_slot_count) * room_solutions[i].size();
-    }
 
     Vector<double> obj(col_cnt);
     Vector<double> elems(elem_reserve_cnt, 1);
@@ -449,58 +539,64 @@ void MultiRoomIntegerProgramming::Run(AlgorithmResult &result)
     Vector<double> col_lb(col_cnt, 0);
     Vector<double> col_ub(col_cnt, 1);
 
-    UInt32 col = 0;
-    for (const auto &solutions : room_solutions)
     {
-        for (const auto &solution : solutions)
+        UInt32 c = 0;
+        for (const auto &solutions : room_solutions)
         {
-            obj[col] = solution.productivity;
-            if (std::abs(obj[col]) > 1e25)
+            for (const auto &solution : solutions)
             {
-                LOG_E("Invalid solution: ", obj[col], " at col#", col);
-                LOG_E(GetSolutionInfo(*rooms_[GetRoomIdx(col, room_ranges)], solution));
-                assert(false);
-                obj[col] = 0;
+                obj[c] = solution.productivity;
+                if (std::abs(obj[c]) > 1e25)
+                {
+                    LOG_E("Invalid solution: ", obj[c], " at c#", c);
+                    assert(false);
+                    obj[c] = 0;
+                }
+                c++;
             }
-            col++;
         }
     }
 
-    // 构造干员inst_id到干员在all_ops_中的索引的映射
-    Vector<UInt32> op_inst_id_to_row_map(model::buff::kAlgOperatorSize, 0);
-    for (UInt32 r = 0; r < room_start_row; r++)
     {
-        op_inst_id_to_row_map[all_ops_[r]->inst_id] = r;
-    }
-
-    col = 0;
-    for (UInt32 room_idx = 0; room_idx < room_solutions.size(); ++room_idx)
-    {
-        for (const auto &solution : room_solutions[room_idx])
+        UInt32 c = 0;
+        for (UInt32 room_idx = 0; room_idx < room_solutions.size(); ++room_idx)
         {
-            // 干员约束
-            for (const auto op : solution.operators)
+            for (const auto &solution : room_solutions[room_idx])
             {
-                if (!op)
-                    continue;
+                // 干员约束
+                for (const auto op : solution.operators)
+                {
+                    if (!op)
+                        continue;
 
-                row_indices[elem_cnt] = (int)op_inst_id_to_row_map[op->inst_id];
-                col_indices[elem_cnt] = (int)col;
+                    UInt32 op_row = op_inst_id_to_op_row_map[op->inst_id];
+
+                    row_indices[elem_cnt] = (int)op_row;
+                    col_indices[elem_cnt] = (int)c;
+                    elem_cnt++;
+
+                    // 异格约束
+                    if (op_row_to_sp_group_row_map[op_row] != UINT32_MAX)
+                    {
+                        row_indices[elem_cnt] = (int)op_row_to_sp_group_row_map[op_row];
+                        col_indices[elem_cnt] = (int)c;
+                        elem_cnt++;
+                    }
+                }
+
+                // 房间约束
+                row_indices[elem_cnt] = (int)(row_range_map[RowType::ROOM_CONS].start + room_idx);
+                col_indices[elem_cnt] = (int)c;
                 elem_cnt++;
+                c++;
             }
-
-            // 房间约束
-            row_indices[elem_cnt] = (int)(room_start_row + room_idx);
-            col_indices[elem_cnt] = (int)col;
-            elem_cnt++;
-            col++;
         }
     }
 
     LOG_D("Inserted ", elem_cnt, " elements out of ", elem_reserve_cnt, " reserved.");
-    LOG_I("Solving problem using Cbc solver");
+    LOG_I("Solving using Cbc solver");
     {
-        const auto &sc = SCOPE_TIMER_WITH_TRACE("Solving problem using Cbc solver");
+        const auto &sc = SCOPE_TIMER_WITH_TRACE("Solving using Cbc solver");
         OsiClpSolverInterface solver;
 
         CoinPackedMatrix m(true, row_indices.data(), col_indices.data(), elems.data(), (int)elem_cnt);
@@ -593,7 +689,7 @@ void MultiRoomIntegerProgramming::Run(AlgorithmResult &result)
 
                 UInt32 room = GetRoomIdx(c, room_ranges);
                 UInt32 sol_idx_in_room = GetIndexInRoom(c, room_ranges);
-                auto &room_result = result.rooms.emplace_back();
+                auto &room_result = out_result.rooms.emplace_back();
                 room_result.room = rooms_[room];
                 room_result.solution = room_solutions[room][sol_idx_in_room];
             }
@@ -602,7 +698,7 @@ void MultiRoomIntegerProgramming::Run(AlgorithmResult &result)
 
     if (params_.gen_lp_file)
     {
-        GenLpFile(room_solutions, obj, row_cnt, col_cnt, elems, row_indices, col_indices, room_start_row, row_ub);
+        GenLpFile(room_solutions, obj, row_cnt, col_cnt, elems, row_indices, col_indices, row_range_map, row_ub);
     }
 
     if (params_.gen_all_solution_details)
@@ -641,10 +737,10 @@ void MultiRoomIntegerProgramming::GenCombForRooms(Vector<Vector<SolutionData>> &
 void MultiRoomIntegerProgramming::GenLpFile(Vector<Vector<SolutionData>> &room_solutions, const Vector<double> &obj,
                                             UInt32 row_cnt, UInt32 col_cnt, const Vector<double> &elems,
                                             const Vector<int> &row_indices, Vector<int> &col_indices,
-                                            UInt32 room_start_row, const Vector<double> &row_ub) const
+                                            const RowRangeMap& ranges, const Vector<double> &row_ub) const
 {
     const auto lp_file_path = "./problem.lp";
-    const auto &sc = SCOPE_TIMER_WITH_TRACE("Writing problem to File");
+    const auto &sc = SCOPE_TIMER_WITH_TRACE("Writing LP File");
     LOG_I("Exporting LP file:", lp_file_path);
 
     std::ofstream lp_file(lp_file_path);
@@ -721,12 +817,33 @@ void MultiRoomIntegerProgramming::GenLpFile(Vector<Vector<SolutionData>> &room_s
     for (UInt32 r = 0; r < row_cnt; r++)
     {
         bool has_constraint = false;
+        std::string row_name;
+        size_t row_index_in_type;
+        switch(ranges.GetType(r, row_index_in_type))
+        {
+        case RowType::NONE:
+            row_name = std::string("c").append(std::to_string(r));
+            break;
+
+        case RowType::OP_CONS:
+            row_name = this->all_ops_[row_index_in_type]->char_id;
+            break;
+
+        case RowType::ROOM_CONS:
+            row_name = this->rooms_[row_index_in_type]->id;
+            break;
+
+        case RowType::OP_MUTEX_CONS:
+            row_name = std::string("sp_char_mutex_").append(std::to_string(row_index_in_type));
+            break;
+        }
+
         for (const auto &[c, elem] : row_elems[r])
         {
             if (!has_constraint)
             {
                 lp_file << " "
-                        << (r < room_start_row ? this->all_ops_[r]->char_id : this->rooms_[r - room_start_row]->id)
+                        << row_name
                         << ": ";
                 has_constraint = true;
             }

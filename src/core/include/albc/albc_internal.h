@@ -1,4 +1,6 @@
 #pragma once
+#ifndef ALBC_INTERNAL_H
+#define ALBC_INTERNAL_H
 #include "albc_common.h"
 #include <new>
 #include <cstddef>
@@ -127,3 +129,4 @@ struct String
 };
 
 }
+#endif //ALBC_INTERNAL_H

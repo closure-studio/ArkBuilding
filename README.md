@@ -1,5 +1,5 @@
 # ArkBuilding 明日方舟基建排班计算器
-交流群：[603525846](https://jq.qq.com/?_wv=1027&k=Lc4UEoAe)
+交流群：[603525846](https://jq.qq.com/?_wv=1027&k=Lc4UEoAe)  欢迎提问/建议/~~涩涩~~
 ## 简介
 （项目内部缩写 ALBC: Albc-Like Building Calculator）
 
@@ -22,15 +22,14 @@
 #### 静态数据
 静态数据中用到的 JSON 文件来源详见[此处](https://github.com/Kengxxiao/ArknightsGameData/tree/master/zh_CN/gamedata/excel)
 
-计算前需要加载 `building_data.json` 文件，如果需要基于干员名称（不包括ID）来提供干员参数，
-则还需要加载 `character_table.json` 文件（用于获取干员中文名）。
+计算前需要加载 `building_data.json`,`char_meta_table.json`,`character_table_.json`文件或其中的内容。
 
 #### 单个房间需要提供的参数：
 1. 任意标识符，仅用于在输出中区分房间
 2. 房间类型
 3. 房间槽位数
 4. 订单/产品类型
-5. （可选）房间已有产品数量
+5. （可选）房间属性（见[房间属性说明](#房间属性说明)）
 
 #### 单个干员需要提供的参数：
 干员可选择提供以下三种参数来解析其拥有的技能：
@@ -39,7 +38,7 @@
 * `若干个技能的名称/ID`
 
 以及用于代入计算的参数：
-* 心情(> 0, <= 24)
+* `心情 (0, 24]`
 
 其中用于解析技能的参数的有效组合如下
 1. 指定`干员名称/ID + 精英阶段 + 等级`，将从游戏数据中解析出干员拥有的技能。若干员 Buff 未建模则不会参与计算。`干员ID/名称`无效时，不会参与计算。
@@ -48,7 +47,7 @@
 
 
 #### 干员参数备注：
-* 干员名称/ID（如“德克萨斯” / `char_102_texas`）现在只用于模型中羁绊/联动体系的处理。非必须选项。
+* 干员名称/ID（如“德克萨斯” / `char_102_texas`）现在只用于模型中羁绊/联动体系的处理和异格干员判断。非必须选项。
 * 查询操作相当于用`干员名称/ID + 若干技能`或`若干技能`查询出`干员`及其`精英阶段 + 等级`。
 
 ### 输出数据
@@ -56,7 +55,7 @@
 和预计产能（可看作 `平均效率倍数 * 持续时长（秒）`）
 
 ### 使用相关
-* 提供参数的细节可见 API 头文件及 API 用例。
+* 提供参数的细节可见 API 头文件及 API 用例（如[JSON 用例](#JSON-输入（例）)）
 * 目前的参数组合和提供的集成方式可能还存在局限性，如果你在如何集成方面有问题或有好的见解，欢迎提出 Issue/PR 来改进。
 
 ## 模型
@@ -64,9 +63,10 @@
 
 // TODO: 模型
 
-## 目前局限
+## 目前局限/问题
 * 目前的问题模型里只考虑最大化一定时间内产能，不考虑其他因素。
 * 目前只进行了初步的建模 + 求解的实现。
+* 项目理论上可以做到 header only 。要实现可将 API 部分剥离，但还需要解决以 Cbc 求解器依赖为主的问题，且本项目中使用了 RTTI 和异常处理。
 * 欢迎提出 Issue 或 Pull Request 来改进。
 
 ## 二进制文件
@@ -124,7 +124,7 @@ Available options:
 
 例（测试数据位于`test/`目录中）：
 ```console
-$ albccli -p test/player_data.json -g test/building_data.json -c test/character_table.json -m ONCE -l INFO -L -S
+$ albccli -p test/player_data.json -g test/building_data.json -c test/character_table_.json -m ONCE -l INFO -L -S
 ```
 该命令将运行一次测试，并将包含描述整数规划问题的 .lp 格式文件、全部组合的详细信息输出到工作目录。
 
@@ -134,6 +134,198 @@ $ albccli -p test/player_data.json -g test/building_data.json -c test/character_
 [API 示例](https://github.com/closure-studio/ArkBuilding/tree/main/src/examples/src)
 
 API 接口使用方法见 API 头文件。
+
+### API JSON 格式数据使用说明
+JSON 中的所有数据约定[同上](#使用)
+#### JSON 输入（例）
+```json5
+{
+  // 模型时间限制，代表计算持续的时间。
+  "modelTimeLimit": 57600,
+  // 求解超时。
+  "solveTimeLimit": 60,
+  "chars": {
+    // 此处为参数组合选项1：干员+精英化+等级
+    "char_1": {
+      // 或者 "charId": "char_102_texas"
+      "name": "德克萨斯",
+      "phase": 2,
+      "level": 1
+    },
+    "Char2": {
+      // 选项2：干员+若干技能
+      "skills": [
+        "醉翁之意·β"
+      ]
+    },
+    // 选项3：任意标识符+若干技能，此处可以查询到干员。
+    "jueSe3": {
+      "skills": [
+        "物流专家"
+      ]
+    },
+    // 此处无法查询到干员，但是技能仍会代入模型
+    "anonymous": {
+      "skills": [
+        "标准化·β"
+      ],
+      "morale": 24,
+    }
+    // ... 以下省略其他干员，完整例可见 src/examples/src/json_input.cpp
+  },
+  "rooms": {
+    "room_1": {
+      // 房间类型 见下述表格
+      "type": "TRADING",
+      // 产品类型，见下述表格
+      "prodType": "GOLD",
+      // 槽位数
+      "slots": 3,
+      "attributes": {
+        // 已有订单/产品数
+        "prodCount": 3,
+      }
+    },
+    "room_2": {
+      "type": "TRADING",
+      "prodType": "GOLD",
+      "slots": 3
+    },
+    "room_3": {
+      "type": "MANUFACTURE",
+      "prodType": "GOLD",
+      "slots": 3,
+      "attributes": {
+      }
+    },
+    "room_4": {
+      "type": "MANUFACTURE",
+      "prodType": "GOLD",
+      "slots": 3,
+      "attributes": {
+      }
+    },
+    "room_5": {
+      "type": "MANUFACTURE",
+      "prodType": "RECORD",
+      "slots": 3,
+      "attributes": {
+      }
+    },
+    "room_6": {
+      "type": "MANUFACTURE",
+      "prodType": "RECORD",
+      "slots": 3,
+      "attributes": {
+      }
+    }
+  }
+}
+```
+
+##### 参数说明
+| 参数                             | 参数类型       | 缺省值     | 参数说明                          |
+|--------------------------------|------------|---------|-------------------------------|
+| `modelTimeLimit`               | `double`   | `57600` | 模型时间限制，代表计算持续的时间。             |
+| `solveTimeLimit`               | `double`   | `60`    | Cbc 求解器的超时。                   |
+| `chars`                        | `object`   |         | 键供在输出中区分使用，与代入模型计算的干员名称/ID不同。 |
+| `chars[identifier].name`       | `string`   |         | 干员名称                          |
+| `chars[identifier].id`         | `string`   |         | 干员ID                          |
+| `chars[identifier].phase`      | `int`      |         | `{0, 1, 2}` 干员精英阶段            |
+| `chars[identifier].level`      | `int`      |         | `[0, 90]` 干员等级                |
+| `chars[identifier].morale`     | `double`   | `24`    | `(0, 24]` 干员心情值               |
+| `chars[identifier].skills`     | `string[]` |         | 干员技能名称/ID                     |
+| `rooms`                        | `object`   |         | 键供在输出中区分使用。                   |
+| `rooms[identifier].type`       | `string`   |         | 房间类型，见下述表格                    |
+| `rooms[identifier].prodType`   | `string`   |         | 产品类型，见下述表格。                   |
+| `rooms[identifier].slots`      | `int`      |         | 房间槽位数                         |
+| `rooms[identifier].attributes` | `object`   |         | 房间属性，见下述表格                    |
+
+##### 房间类型说明
+| 房间类型 | 名称            | 产品类型                                        |
+|------|---------------|---------------------------------------------|
+| 制造站  | `MANUFACTURE` | `{GOLD, RECORD, SHARD, CHIP}` 赤金，录像，源石碎片，芯片 |
+| 贸易站  | `TRADING`     | `{GOLD, SHARD}` 赤金，合成玉                      |
+
+##### 房间属性说明
+| 房间属性     | 名称             | 类型       | 缺省值              | 说明                                   |
+|----------|----------------|----------|------------------|--------------------------------------|
+| 已有产品数量   | `prodCount`    | `int`    | `0`              | 房间内已有的产品数量。现在用于孑技能的计算。（计划用于计算产品满仓情况） |
+| 基础产品容量   | `baseProdCap`  | `int`    | `10`             | 房间容纳的产品数。现在用于孑技能的计算。（计划用于计算产品满仓情况）   |
+| 基础心情消耗倍率 | `baseCharCost` | `double` | `1`              | 全局的心情消耗倍率                            |
+| 基础产能倍率   | `baseProdEff`  | `double` | `1 + 0.01 * 槽位数` | 房间基础产能倍率                             |
+
+#### JSON 输出（例）
+```json5
+{
+  "errors" :
+  {
+    "chars" : {},
+    "errors" : [],
+    "rooms" : {}
+  },
+  "rooms" :
+  {
+    "room_1" :
+    {
+      "chars" :
+      [
+        "Char2",
+        "char_1",
+        "孑"
+      ],
+      "duration" : 57600.0,
+      "score" : 127296.0
+    },
+    "room_2" :
+    {
+      "chars" :
+      [
+        "jueSe3",
+        "空弦",
+        "雪雉"
+      ],
+      "duration" : 57600.0,
+      "score" : 97920.000000000015
+    },
+    "room_3" :
+    {
+      "chars" :
+      [
+        "anonymous",
+        "刻俄柏",
+        "豆苗"
+      ],
+      "duration" : 57600.0,
+      "score" : 80640.0
+    },
+    "room_6" :
+    {
+      "chars" :
+      [
+        "泡泡",
+        "火神",
+        "石棉"
+      ],
+      "duration" : 57600.0,
+      "score" : 135359.99999999997
+    }
+  }
+}
+```
+
+##### 参数说明
+| 参数                           | 参数类型       | 参数说明                                                    |
+|------------------------------|------------|---------------------------------------------------------|
+| `rooms`                      | `object`   | 每个房间的排班结果，不包括没有排班的房间。                                   |
+| `rooms[identifier].chars`    | `string[]` | 选中的干员。                                                  |
+| `rooms[identifier].duration` | `double`   | 从排班开始到出现第一位精力涣散的干员的时长。小于或等于 `modelTimeLimit`。           |
+| `rooms[identifier].score`    | `double`   | 房间的总产能。从 `duration` 到 `modelTimeLimit` 之间会以全员精力涣散来计算产能。 |
+| `errors`                     | `object`   | 运行中输出的错误信息。                                             |
+| `errors.chars[identifier]`   | `string`   | 错误信息，当干员无法被加入模型时发生。                                     |
+| `errors.rooms[identifier]`   | `string`   | 错误信息，当房间无法被加入模型时发生。                                     |
+| `errors.errors`              | `string[]` | 全局产生的错误信息。每个项目一行。                                       |
+
 
 ## 构建源码（目前在 CMake + Windows MSYS2 MinGW / Linux GCC, x64 / ARM64 上经过测试） 
 1. 环境
@@ -160,6 +352,7 @@ API 接口使用方法见 API 头文件。
 * [cameron314/concurrentqueue](https://github.com/cameron314/concurrentqueue)
 * [Fytch/ProgramOptions.hxx](https://github.com/Fytch/ProgramOptions.hxx)
 * [bombela/backward-cpp](https://github.com/bombela/backward-cpp)
+* [boost-ext/di](https://github.com/boost-ext/di)
 
 ## License
-// TODO: license
+MIT
