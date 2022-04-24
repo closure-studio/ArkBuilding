@@ -104,7 +104,7 @@ void CombMaker::MakeComb(const Vector<model::OperatorModel *> &operators, UInt32
     all_ops.flip();
 
     HardMutexResolver mutex_handler(operators, room->type);
-    UInt32 calc_cnt = std::max(util::n_choose_k(mutex_handler.non_mutex_ops.size(), max_n), 1ULL);
+    UInt32 calc_cnt = std::max(util::n_choose_k(mutex_handler.non_mutex_ops.size(), max_n), (UInt64)1);
     auto mutex_cnt = mutex_handler.MutexCombCnt();
     calc_cnt += mutex_cnt * (util::n_choose_k(mutex_handler.ops_for_partial_comb.size(), max_n) -
                              calc_cnt); // 见MakePartialComb中防止重复计算部分
