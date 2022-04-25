@@ -295,17 +295,22 @@ IResult *Model::Impl::GetResult() const
     LOG_D("Creating algorithm params: ", params.GetOperators().size(), " operators, ");
     const auto sc = SCOPE_TIMER_WITH_TRACE("Solving");
     const auto i_runner = api::di::Resolve<algorithm::iface::IRunner>();
-    AlbcSolverParameters sp;
-    sp.model_time_limit = util::read_attribute(model_parameters, ALBC_MODEL_PARAM_DURATION);
-    sp.solve_time_limit = util::read_attribute(model_parameters, ALBC_MODEL_PARAM_SOLVE_TIME_LIMIT);
+    AlbcSolverParameters sp{.gen_lp_file = false,
+                            .gen_all_solution_details = false,
+                            .solve_time_limit = util::read_attribute(model_parameters, ALBC_MODEL_PARAM_SOLVE_TIME_LIMIT),
+                            .model_time_limit = util::read_attribute(model_parameters, ALBC_MODEL_PARAM_DURATION)};
 
-    if (sp.model_time_limit <= 0) sp.model_time_limit = kDefaultModelTimeLimit;
-    if (sp.solve_time_limit <= 0) sp.solve_time_limit = kDefaultSolveTimeLimit;
+    if (sp.model_time_limit <= 0)
+        sp.model_time_limit = kDefaultModelTimeLimit;
+
+    if (sp.solve_time_limit <= 0)
+        sp.solve_time_limit = kDefaultSolveTimeLimit;
+
     AlgorithmResult alg_result;
     i_runner->Run(params, sp, alg_result);
 
-    auto result = new ResultImpl(0, new ICollectionVectorImpl<IRoomResult*>());
-    for (const auto& alg_room_result: alg_result.rooms)
+    auto result = new ResultImpl(0, new ICollectionVectorImpl<IRoomResult *>());
+    for (const auto &alg_room_result : alg_result.rooms)
     {
         auto ops = new ICollectionVectorImpl<String>();
         for (const auto* op: alg_room_result.solution.operators)

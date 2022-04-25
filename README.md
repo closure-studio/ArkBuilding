@@ -146,22 +146,26 @@ JSON 中的所有数据约定[同上](#使用)
   "chars": {
     // 此处为参数组合选项1：干员+精英化+等级
     "char_1": {
-      // 或者 "charId": "char_102_texas"
+      // 或者 "id": "char_102_texas"
       "name": "德克萨斯",
       "phase": 2,
-      "level": 1
+      "level": 1,
+      "morale": 24,
     },
+    // 选项2：干员+若干技能
     "Char2": {
-      // 选项2：干员+若干技能
+      "name": "拉普兰德",
       "skills": [
         "醉翁之意·β"
-      ]
+      ],
+      "morale": 24,
     },
     // 选项3：任意标识符+若干技能，此处可以查询到干员。
     "jueSe3": {
       "skills": [
         "物流专家"
-      ]
+      ],
+      "morale": 24,
     },
     // 此处无法查询到干员，但是技能仍会代入模型
     "anonymous": {
@@ -257,57 +261,47 @@ JSON 中的所有数据约定[同上](#使用)
 #### JSON 输出（例）
 ```json5
 {
-  "errors" :
-  {
-    "chars" : {},
-    "errors" : [],
-    "rooms" : {}
+  "errors": {
+    "chars": {},
+    "errors": [],
+    "rooms": {}
   },
-  "rooms" :
-  {
-    "room_1" :
-    {
-      "chars" :
-      [
+  "rooms": {
+    "room_1": {
+      "chars": [
         "Char2",
         "char_1",
         "孑"
       ],
-      "duration" : 57600.0,
-      "score" : 127296.0
+      "duration": 57600.0,
+      "score": 127296.0
     },
-    "room_2" :
-    {
-      "chars" :
-      [
+    "room_2": {
+      "chars": [
         "jueSe3",
         "空弦",
         "雪雉"
       ],
-      "duration" : 57600.0,
-      "score" : 97920.000000000015
+      "duration": 57600.0,
+      "score": 97920.000000000015
     },
-    "room_3" :
-    {
-      "chars" :
-      [
+    "room_3": {
+      "chars": [
         "anonymous",
         "刻俄柏",
         "豆苗"
       ],
-      "duration" : 57600.0,
-      "score" : 80640.0
+      "duration": 57600.0,
+      "score": 80640.0
     },
-    "room_6" :
-    {
-      "chars" :
-      [
+    "room_6": {
+      "chars": [
         "泡泡",
         "火神",
         "石棉"
       ],
-      "duration" : 57600.0,
-      "score" : 135359.99999999997
+      "duration": 57600.0,
+      "score": 135359.99999999997
     }
   }
 }
