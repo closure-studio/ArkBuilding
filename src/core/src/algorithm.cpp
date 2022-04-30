@@ -1,6 +1,5 @@
 ﻿#include "algorithm.h"
 #include "util_flag.h"
-#include "util_locale.h"
 #include "util_time.h"
 #include "model_simulator.h"
 
@@ -702,7 +701,7 @@ void MultiRoomIntegerProgramming::Run(AlgorithmResult &out_result)
                 const auto &room = *rooms_[room_idx];
                 util::append_snprintf(p, l, "Room#%d \"%-10s\" [Prod %10s][Ord %10s][nSlot %d]: avg %3.f%% (+%3.f%%) (%.2f / %.2f)",
                                 room_idx,
-                                room.id,
+                                room.id.c_str(),
                                 util::enum_to_string(room.room_attributes.prod_type).data(),
                                 util::enum_to_string(room.room_attributes.order_type).data(),
                                 room.max_slot_count,
