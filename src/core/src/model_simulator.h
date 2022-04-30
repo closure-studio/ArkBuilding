@@ -1,11 +1,13 @@
-#pragma once
+﻿#pragma once
 
 #include "model_buff.h"
 #include "model_simulator_func_piecewise.h"
 #include "albc_types.h"
 #include "util.h"
 
-#define SIMULATOR_UNROLL_MAX_BUFF_CNT UNROLL_LOOP(albc::model::buff::kRoomMaxBuffSlots)
+#define SIMULATOR_ROOM_MAX_BUFF_SLOTS 10
+#define SIMULATOR_UNROLL_MAX_BUFF_CNT UNROLL_LOOP(SIMULATOR_ROOM_MAX_BUFF_SLOTS)
+static_assert(SIMULATOR_ROOM_MAX_BUFF_SLOTS == albc::model::buff::kRoomMaxBuffSlots, "SIMULATOR_ROOM_MAX_BUFF_SLOTS");
 
 namespace albc::model::buff
 {

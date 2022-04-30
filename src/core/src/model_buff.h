@@ -1,6 +1,4 @@
-#pragma once
-#pragma clang diagnostic push
-#pragma ide diagnostic ignored "OCUnusedGlobalDeclarationInspection"
+﻿#pragma once
 #include "util_attributes.h"
 #include "model_buff_primitives.h"
 #include "data_building.h"
@@ -11,6 +9,9 @@
 #include "util.h"
 #include <algorithm>
 #include <cstdarg>
+
+#pragma clang diagnostic push
+#pragma ide diagnostic ignored "OCUnusedGlobalDeclarationInspection"
 
 namespace albc::model::buff
 {
@@ -61,7 +62,7 @@ class ModifierApplier
 class RoomBuff
 {
   public:
-    int owner_inst_id = 0;  //拥有该Buff的干员的实例Id
+    int owner_inst_id;  //拥有该Buff的干员的实例Id
     std::string owner_char_id{}; //拥有该Buff的角色Id
     std::string buff_id{};       // Buff的Id
     std::string name;
@@ -69,12 +70,12 @@ class RoomBuff
     RoomBuffType inner_type{RoomBuffType::UNDEFINED}; //内部类型
     mem::PtrVector<RoomBuffTargetValidator, std::shared_ptr> validators;     //作用范围验证器
     data::building::RoomType room_type{data::building::RoomType::NONE};       //作用房间类型
-    int sort_id = 0;                                  //排序id
-    double duration = 86400;                          //持续时间，由干员的心情决定
+    int sort_id;                                  //排序id
+    double duration;                          //持续时间，由干员的心情决定
     ModifierApplier applier{};
     RoomBuff *const prototype;
     Vector<std::string> patch_targets; //指定该buff将会替代掉哪些buff的效果
-    bool is_mutex = false;        //是否会与同类Buff互斥
+    bool is_mutex;        //是否会与同类Buff互斥
 
     RoomBuff();
 
@@ -129,10 +130,10 @@ template <typename TDerived> class CloneableRoomBuff : public RoomBuff
 class BasicInc : public CloneableRoomBuff<BasicInc>
 {
   public:
-    BasicInc(double eff_delta, int cap_delta, const data::building::RoomType room_type_1, const RoomBuffType inner_type);
+    BasicInc(double eff_delta, int cap_delta, const data::building::RoomType room_type_val, const RoomBuffType inner_type_val);
 
     BasicInc(double eff_delta, int cap_delta, const double cost_mod,
-             CharCostModifierType cost_mod_type, data::building::RoomType room_type_1, const RoomBuffType inner_type);
+             CharCostModifierType cost_mod_type, data::building::RoomType room_type_val, const RoomBuffType inner_type_val);
 
     BasicInc(const BasicInc &src) = default;
 };
@@ -144,7 +145,7 @@ class IncEffOverTime : public CloneableRoomBuff<IncEffOverTime>
 {
   public:
     IncEffOverTime(double base_eff_delta, double eff_inc_per_hour, const double max_extra_eff_inc,
-                   data::building::RoomType room_type_1, RoomBuffType inner_type);
+                   data::building::RoomType room_type_val, RoomBuffType inner_type_val);
 };
 
 /**
@@ -168,7 +169,7 @@ class IncEffByOtherEffInc : public CloneableRoomBuff<IncEffByOtherEffInc>
 {
   public:
     IncEffByOtherEffInc(double unit_addition, double unit_factor, const double max_extra_addition,
-                        data::building::RoomType room_type_1, RoomBuffType inner_type);
+                        data::building::RoomType room_type_val, RoomBuffType inner_type_val);
 };
 
 /**
@@ -195,11 +196,11 @@ class IncEffByGlobalAttribute : public CloneableRoomBuff<IncEffByGlobalAttribute
 {
   public:
     IncEffByGlobalAttribute(double unit, double addition_per_unit, const GlobalAttributeType global_attribute_type,
-                                   data::building::RoomType room_type_1, RoomBuffType inner_type);
+                                   data::building::RoomType room_type_val, RoomBuffType inner_type_val);
 
     IncEffByGlobalAttribute(double base_delta, double unit, const double addition_per_unit,
-                                   GlobalAttributeType global_attribute_type, data::building::RoomType room_type_1,
-                                   RoomBuffType inner_type);
+                                   GlobalAttributeType global_attribute_type, data::building::RoomType room_type_val,
+                                   RoomBuffType inner_type_val);
 
     void UpdateScope(const ModifierScopeData &data) override;
 
@@ -216,8 +217,8 @@ class IncEffByGlobalAttribute : public CloneableRoomBuff<IncEffByGlobalAttribute
 class IncEffByStandardizationCnt : public CloneableRoomBuff<IncEffByStandardizationCnt>
 {
   public:
-    IncEffByStandardizationCnt(double addition_per_unit, data::building::RoomType room_type_1,
-                                      RoomBuffType inner_type);
+    IncEffByStandardizationCnt(double addition_per_unit, data::building::RoomType room_type_val,
+                                      RoomBuffType inner_type_val);
 
     void UpdateScope(const ModifierScopeData &data) override;
 

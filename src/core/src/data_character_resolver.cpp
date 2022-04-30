@@ -1,4 +1,4 @@
-//
+﻿//
 // Created by Nonary on 2022/4/24.
 //
 #include "data_character_resolver.h"
@@ -10,6 +10,7 @@ CharResolveParams::CharResolveParams(
     CharIdentifierType id_type,
     const Vector<std::string>& skill_ids_val,
     const Vector<std::string>& skill_names_val,
+    const Vector<std::string>& skill_icons_val,
     EvolvePhase phase_val,
     int level_val,
     bool warn_if_not_found_val)
@@ -20,10 +21,11 @@ CharResolveParams::CharResolveParams(
       identifier_type_(id_type),
       skill_ids_(skill_ids_val),
       skill_names_(skill_names_val),
+      skill_icons_(skill_icons_val),
       warn_on_failure_(warn_if_not_found_val)
 {}
-bool CharacterResolver::QueryChar(const ISkillLookupTable &table, ISkillLookupTable::CharQueryItem &result,
-                                  const Vector<std::string> &skill_keys, const std::string &char_id)
+bool CharacterResolver::QueryChar(const ISkillLookupTable &table, ISkillLookupTable::CharQueryEntry &result,
+                                  const Vector<std::string> &skill_keys, const std::string &char_id = {})
 {
     result = table.QueryCharWithBuffList(skill_keys, char_id);
     if (result.HasContent())
@@ -48,8 +50,9 @@ bool CharacterResolver::ResolveCharacter(const CharResolveParams &params, CharRe
     switch (params.identifier_type_)
     {
     case CharIdentifierType::ID:
-
         id_resolve_fail = !character_lookup_table_->HasId(params.identifier_);
+        if (!id_resolve_fail)
+            id = params.identifier_;
         break;
 
     case CharIdentifierType::NAME:
@@ -80,7 +83,12 @@ bool CharacterResolver::ResolveCharacter(const CharResolveParams &params, CharRe
     // 1. ID解析成功，且设置等级，则使用building_data.json中定义的干员技能
     // 2. ID和等级未全部提供或无法解析，或只解析了ID的情况下，尝试使用技能反推并补足前两项条件，若无法解析，则直接使用技能参与运算。
     // 如果未提供技能，且ID和等级未全部设置，则解析失败
-    bool sufficient_skill_cond = (!params.skill_ids_.empty() || !params.skill_names_.empty());
+    bool sufficient_skill_cond = 
+        !params.skill_ids_.empty() || 
+        !params.skill_names_.empty() ||
+        !params.skill_icons_.empty();
+
+    Vector<std::string> skill_icons;
 
     // 已设置技能，使用技能条件
     if (sufficient_skill_cond)
@@ -108,6 +116,19 @@ bool CharacterResolver::ResolveCharacter(const CharResolveParams &params, CharRe
 
             tmp_result.skill_ids.push_back(skill_id);
         }
+
+        for (const auto& skill_icon : params.skill_icons_)
+        {
+            if (!skill_lookup_table_->HasIcon(skill_icon))
+            {
+                LOG_W("Skill icon not found: ", skill_icon, ". Skipping.");
+                continue;
+            }
+
+            skill_icons.push_back(skill_icon);
+        }
+
+        // 非全部技能图标与ID一一对应，将由SkillLookupTable处理
     }
     bool sufficient_level_cond = params.phase_and_level_provided_;
     if (params.phase_and_level_provided_)
@@ -119,9 +140,16 @@ bool CharacterResolver::ResolveCharacter(const CharResolveParams &params, CharRe
     // 尝试使用技能反推并补足前两项条件
     if (sufficient_skill_cond && (!sufficient_level_cond || !sufficient_id_cond))
     {
-        if (ISkillLookupTable::CharQueryItem query;
-            (!tmp_result.char_id.empty() && QueryChar(*skill_lookup_table_,query, tmp_result.skill_ids, tmp_result.char_id))
-            || QueryChar(*skill_lookup_table_,query, tmp_result.skill_ids, ""))
+        ISkillLookupTable::CharQueryEntry query;
+        bool query_ok =
+            !tmp_result.char_id.empty() &&
+                (QueryChar(*skill_lookup_table_, query, tmp_result.skill_ids, tmp_result.char_id) ||
+                 QueryChar(*skill_lookup_table_, query, skill_icons, tmp_result.char_id));
+
+        query_ok = query_ok || QueryChar(*skill_lookup_table_, query, tmp_result.skill_ids);
+        query_ok = query_ok || QueryChar(*skill_lookup_table_, query, params.skill_icons_);
+
+        if (query_ok)
         {
             if (!sufficient_id_cond)
             {
@@ -143,11 +171,12 @@ bool CharacterResolver::ResolveCharacter(const CharResolveParams &params, CharRe
     if (sufficient_id_cond && !sufficient_level_cond)
     {
         tmp_result.level = 1;
-        tmp_result.phase = data::EvolvePhase::PHASE_0;
+        tmp_result.phase = EvolvePhase::PHASE_0;
         sufficient_level_cond = true;
+        LOG_W("Defaulting to initial character state: ", params.identifier_);
     }
 
-    bool ok = !tmp_result.skill_ids.empty() || (!tmp_result.char_id.empty() && sufficient_level_cond);
+    bool ok = !tmp_result.skill_ids.empty() || !tmp_result.char_id.empty() && sufficient_level_cond;
     if (ok)
     {
         result = std::move(tmp_result);
@@ -164,6 +193,7 @@ bool CharacterResolver::ResolveCharacter(const CharResolveParams &params, CharRe
               ", phase: ", util::enum_to_string(tmp_result.phase),
               ", skill_ids: {", util::Join(params.skill_ids_.begin(), params.skill_ids_.end(), ", "),
               "}, skill_names: {", util::Join(params.skill_names_.begin(), params.skill_names_.end(), ", "),
+              "}, skill_icons: {", util::Join(params.skill_icons_.begin(), params.skill_icons_.end(), ", "),
               "}");
     }
     return ok;

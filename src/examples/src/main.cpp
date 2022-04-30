@@ -6,8 +6,20 @@ extern "C"
 
 #include <iostream>
 
+#ifdef _WIN32
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <windows.h>
+#undef ERROR
+#endif
+
 int main(int argc, char *argv[])
 {
+#ifdef _WIN32
+    SetConsoleOutputCP(CP_UTF8);
+#endif
+
     std::cout <<
         "Enter a number: \n"
         "1: C++\n"

@@ -1,4 +1,4 @@
-// ALBC C API, wrapper around classes in albc.h
+﻿// ALBC C API, wrapper around classes in albc.h
 #pragma once
 #ifndef CALBC_H
 #define CALBC_H

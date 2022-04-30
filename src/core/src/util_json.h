@@ -5,26 +5,32 @@
 #include "json/json.h"
 #include "external/byte_array_buffer.h"
 #include <fstream>
-#include <iostream>
 
 namespace albc::util
 {
-template <typename T> constexpr T json_ctor(const Json::Value &json)
+template <typename T,
+    ALBC_REQUIRES(std::is_constructible_v<T, Json::Value>)>
+constexpr T json_ctor(const Json::Value &json)
 {
     return T(json);
 }
 
-template <typename T> constexpr T* json_new(const Json::Value &json)
+template <typename T,
+    ALBC_REQUIRES(std::is_constructible_v<T, Json::Value>)>
+constexpr T* json_new(const Json::Value &json)
 {
     return new T(json);
 }
 
-template <template <class...> typename TPtr, typename T> constexpr TPtr<T> json_new(const Json::Value &json)
+template <template <class...> typename TPtr, typename T,
+    ALBC_REQUIRES(std::is_constructible_v<T, Json::Value>)>
+constexpr TPtr<T> json_make_ptr(const Json::Value &json)
 {
     return TPtr<T>(new T(json));
 }
 
-template <typename T> constexpr auto json_cast(const Json::Value &json) -> decltype(json.as<T>())
+template <typename T>
+constexpr auto json_cast(const Json::Value &json) -> decltype(json.as<T>())
 {
     return json.as<T>();
 } // the default constructor
@@ -50,9 +56,8 @@ template <typename TEnum> constexpr TEnum json_string_as_enum(const Json::Value 
 }
 
 template <typename TValue>
-static Dictionary<std::string, TValue> json_val_as_dictionary(const Json::Value &val,
-                                                              TValue (*val_factory)(const Json::Value &json),
-                                                              bool throw_on_error = true)
+static Dictionary<std::string, TValue>
+json_val_as_dictionary(const Json::Value &val, TValue (*val_factory)(const Json::Value &json), bool throw_on_error = true)
 {
     Dictionary<std::string, TValue> dict;
 
@@ -63,7 +68,7 @@ static Dictionary<std::string, TValue> json_val_as_dictionary(const Json::Value 
     {
         try
         {
-            dict.template emplace(std::string(*it), val_factory(item));
+            dict.emplace(std::string(*it), val_factory(item));
         }
         catch (const std::exception &e)
         {
@@ -78,17 +83,17 @@ static Dictionary<std::string, TValue> json_val_as_dictionary(const Json::Value 
 }
 
 template <typename TValue,
-    std::enable_if_t<std::is_constructible_v<TValue, Json::Value>, bool> = true>
+        ALBC_REQUIRES(std::is_constructible_v<TValue, Json::Value>)>
 static Dictionary<std::string, TValue> json_val_as_dictionary(const Json::Value &val, bool throw_on_error = true)
 {
     return json_val_as_dictionary(val, json_ctor<TValue>, throw_on_error);
 }
 
 template <typename TValue, template <class...> typename TPtr = std::unique_ptr,
-    std::enable_if_t<std::is_constructible_v<TValue, Json::Value>, bool> = true>
+        ALBC_REQUIRES(std::is_constructible_v<TValue, Json::Value>)>
 static mem::PtrDictionary<std::string, TValue, TPtr> json_val_as_ptr_dictionary(const Json::Value &val, bool throw_on_error = true)
 {
-    return json_val_as_dictionary<TPtr<TValue>>(val, json_new<TPtr, TValue>, throw_on_error);
+    return json_val_as_dictionary<TPtr<TValue>>(val, json_make_ptr<TPtr, TValue>, throw_on_error);
 }
 
 template <typename T>
@@ -99,7 +104,7 @@ template <typename T>
     {
         try
         {
-            list.template emplace_back(val_factory(item));
+            list.emplace_back(val_factory(item));
         }
         catch (const std::exception &e)
         {
@@ -113,7 +118,7 @@ template <typename T>
 }
 
 template <typename T,
-    std::enable_if_t<std::is_constructible_v<T, Json::Value>, int> = 0>
+        ALBC_REQUIRES(std::is_constructible_v<T, Json::Value>)>
 [[maybe_unused]] List<T> json_val_as_list(const Json::Value &val, bool throw_on_error = true)
 {
     return json_val_as_list(val, json_ctor<T>, throw_on_error);
@@ -127,7 +132,7 @@ static Vector<T> json_val_as_vector(const Json::Value &val, T (*val_factory)(con
     {
         try
         {
-            vec.template emplace_back(val_factory(item));
+            vec.emplace_back(val_factory(item));
         }
         catch (const std::exception &e)
         {
@@ -141,7 +146,7 @@ static Vector<T> json_val_as_vector(const Json::Value &val, T (*val_factory)(con
 }
 
 template <typename T,
-    std::enable_if_t<std::is_constructible_v<T, Json::Value>, bool> = true>
+    ALBC_REQUIRES(std::is_constructible_v<T, Json::Value>)>
 static Vector<T> json_val_as_vector(const Json::Value &val, bool throw_on_error = true)
 {
     return json_val_as_vector(val, json_ctor<T>, throw_on_error);
@@ -149,10 +154,10 @@ static Vector<T> json_val_as_vector(const Json::Value &val, bool throw_on_error 
 
 
 template <typename T, template <class...> typename TPtr = std::unique_ptr,
-    std::enable_if_t<std::is_constructible_v<T, Json::Value>, bool> = true>
+    ALBC_REQUIRES(std::is_constructible_v<T, Json::Value>)>
 static mem::PtrVector<T, TPtr> json_val_as_ptr_vector(const Json::Value &val, bool throw_on_error = true)
 {
-    return json_val_as_vector(val, json_new<TPtr, T>, throw_on_error);
+    return json_val_as_vector(val, json_make_ptr<TPtr, T>, throw_on_error);
 }
 
 [[maybe_unused]] static Json::Value read_json_from_file(const std::string &path)

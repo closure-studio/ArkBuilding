@@ -1,6 +1,7 @@
-#include "algorithm.h"
+﻿#include "algorithm.h"
 #include "util_flag.h"
 #include "util_locale.h"
+#include "util_time.h"
 #include "model_simulator.h"
 
 #include "CbcModel.hpp"
@@ -9,6 +10,7 @@
 
 #include <bitset>
 #include <fstream>
+#include <numeric>
 #include <random>
 #include <regex>
 #include <unordered_set>
@@ -16,6 +18,43 @@
 
 namespace albc::algorithm
 {
+class AlbcCoinMessageHandler : public CoinMessageHandler
+{
+    util::Logger logger;
+    static constexpr const char* kCbcLabel = "Cbc";
+  public:
+    int print() override
+    {
+        logger << kCbcLabel << '|' << messageBuffer_ << std::endl;
+        return 0;
+    }
+
+    void checkSeverity() override
+    {
+        switch (currentMessage_.severity_)
+        {
+        case 'I':
+            logger(util::LogLevel::INFO);
+            break;
+
+        case 'W':
+            logger(util::LogLevel::WARN);
+            break;
+
+        case 'E':
+            logger(util::LogLevel::ERROR);
+            break;
+
+        case 'S':
+            logger(util::LogLevel::NONE);
+            break;
+
+        default:
+            logger(util::LogLevel::WARN) << "UNKNOWN SEVERITY: " << currentMessage_.severity_ << std::endl;
+        }
+    }
+};
+
 static void ResolveSpCharGroup(const Vector<model::OperatorModel*>& ops,
                                Dictionary<std::string, Vector<UInt32 /* index of op */  >>& group_ops_map)
 {
@@ -31,7 +70,7 @@ static void ResolveSpCharGroup(const Vector<model::OperatorModel*>& ops,
             || group_ops_set.count(std::hash<std::string>()(ops[i]->sp_char_group)) <= 1)
             continue;
 
-        group_ops_map[ops[i]->sp_char_group].push_back(i);
+        group_ops_map[ops[i]->sp_char_group].push_back(static_cast<UInt32>(i));
     }
 }
 
@@ -104,9 +143,10 @@ void CombMaker::MakeComb(const Vector<model::OperatorModel *> &operators, UInt32
     all_ops.flip();
 
     HardMutexResolver mutex_handler(operators, room->type);
-    UInt32 calc_cnt = std::max(util::n_choose_k(mutex_handler.non_mutex_ops.size(), max_n), (UInt64)1);
+    auto calc_cnt = util::n_choose_k(static_cast<UInt32>(mutex_handler.non_mutex_ops.size()), max_n);
+    calc_cnt = std::max(calc_cnt, static_cast<UInt32>(1));
     auto mutex_cnt = mutex_handler.MutexCombCnt();
-    calc_cnt += mutex_cnt * (util::n_choose_k(mutex_handler.ops_for_partial_comb.size(), max_n) -
+    calc_cnt += mutex_cnt * (util::n_choose_k(static_cast<UInt32>(mutex_handler.ops_for_partial_comb.size()), max_n) -
                              calc_cnt); // 见MakePartialComb中防止重复计算部分
     solution_holder.Reserve(calc_cnt);
 
@@ -158,7 +198,7 @@ ALBC_FLATTEN void CombMaker::MakePartialComb(const Vector<model::OperatorModel *
     // 将原先干员设为不可用，新干员设为可用，即可防止重复计算
     if (operators.empty()) return;
 
-    UInt32 size = operators.size();
+    auto size = static_cast<UInt32>(operators.size());
     max_n = std::min(size, max_n);
     UInt32 calc_cnt = 0;
 
@@ -300,7 +340,7 @@ HardMutexResolver::HardMutexResolver(const Vector<model::OperatorModel *> &ops, 
         UInt32 sp_char_group_in_mutex_groups = UINT32_MAX;
         if (it == sp_char_group_mutex_group_map.end())
         {
-            sp_char_group_in_mutex_groups = mutex_groups_.size();
+            sp_char_group_in_mutex_groups = static_cast<UInt32>(mutex_groups_.size());
             mutex_groups_.emplace_back();
             sp_char_group_mutex_group_map.emplace(sp_char_group, sp_char_group_in_mutex_groups);
         }
@@ -336,7 +376,7 @@ HardMutexResolver::HardMutexResolver(const Vector<model::OperatorModel *> &ops, 
                     auto &type_pos_in_mutex_groups = buff_type_mutex_group_map[static_cast<UInt32>(buff->inner_type)];
                     if (type_pos_in_mutex_groups == UINT32_MAX)
                     {
-                        type_pos_in_mutex_groups = mutex_groups_.size();
+                        type_pos_in_mutex_groups = static_cast<UInt32>(mutex_groups_.size());
                         mutex_groups_.emplace_back();
                     }
 
@@ -404,11 +444,11 @@ bool HardMutexResolver::HasMutexBuff() const
 UInt32 HardMutexResolver::MutexCombCnt() const
 {
     return std::accumulate(mutex_groups_.begin(), mutex_groups_.end(), 1,
-                           [](UInt32 sum, const Vector<model::OperatorModel *> &group) { return sum * group.size(); });
+                           [](UInt32 sum, const Vector<model::OperatorModel *> &group) { return sum * static_cast<UInt32>(group.size()); });
 }
 UInt32 HardMutexResolver::MutexGroupCnt() const
 {
-    return mutex_groups_.size();
+    return static_cast<UInt32>(mutex_groups_.size());
 }
 
 void MultiRoomGreedy::Run(AlgorithmResult &result)
@@ -494,7 +534,7 @@ void MultiRoomIntegerProgramming::Run(AlgorithmResult &out_result)
     Vector<UInt32> op_inst_id_to_op_row_map(model::buff::kAlgOperatorSize, 0);
     for (UInt32 op_idx = 0; op_idx < all_ops_.size(); op_idx++)
     {
-        op_inst_id_to_op_row_map[all_ops_[op_idx]->inst_id] = row_range_map[RowType::OP_CONS].start + op_idx;
+        op_inst_id_to_op_row_map[all_ops_[op_idx]->inst_id] = static_cast<UInt32>(row_range_map[RowType::OP_CONS].start + op_idx);
     }
 
     // 建立异格干员行定义，构造从干员行到异格干员行的映射
@@ -505,7 +545,7 @@ void MultiRoomIntegerProgramming::Run(AlgorithmResult &out_result)
         Dictionary<std::string, Vector<UInt32>> sp_char_group_map;
         ResolveSpCharGroup(all_ops_, sp_char_group_map);
         auto sp_group_row_start_idx = row_range_map[RowType::ROOM_CONS].End();
-        sp_group_cnt = sp_char_group_map.size();
+        sp_group_cnt = static_cast<UInt32>(sp_char_group_map.size());
 
         row_range_map[RowType::OP_MUTEX_CONS] = {
             sp_group_row_start_idx,
@@ -517,18 +557,18 @@ void MultiRoomIntegerProgramming::Run(AlgorithmResult &out_result)
         {
             for (auto op_idx : ops)
             {
-                op_row_to_sp_group_row_map[op_inst_id_to_op_row_map[all_ops_[op_idx]->inst_id]] = sp_group_row_start_idx + group_idx;
+                op_row_to_sp_group_row_map[op_inst_id_to_op_row_map[all_ops_[op_idx]->inst_id]] = static_cast<UInt32>(sp_group_row_start_idx + group_idx);
             }
-            sp_op_elem_cnt += ops.size() * (all_ops_.size() - ops.size()); // 偏大，忽略了其他互斥组
+            sp_op_elem_cnt += static_cast<UInt32>(ops.size() * (all_ops_.size() - ops.size())); // 偏大，忽略了其他互斥组
         }
     }
 
     const UInt32 col_cnt = total_solution_count;
-    const UInt32 row_cnt = all_ops_.size() + rooms_.size() + sp_group_cnt;
+    const auto row_cnt = static_cast<UInt32>(all_ops_.size() + rooms_.size() + sp_group_cnt);
     UInt32 elem_reserve_cnt = sp_op_elem_cnt;
     UInt32 elem_cnt = 0;
     for (int i = 0; i < (int)room_solutions.size(); ++i)
-        elem_reserve_cnt += (1 + rooms_[i]->max_slot_count) * room_solutions[i].size();
+        elem_reserve_cnt += (1 + rooms_[i]->max_slot_count) * static_cast<UInt32>(room_solutions[i].size());
 
     Vector<double> obj(col_cnt);
     Vector<double> elems(elem_reserve_cnt, 1);
@@ -548,7 +588,7 @@ void MultiRoomIntegerProgramming::Run(AlgorithmResult &out_result)
                 obj[c] = solution.productivity;
                 if (std::abs(obj[c]) > 1e25)
                 {
-                    LOG_E("Invalid solution: ", obj[c], " at c#", c);
+                    LOG_E("Invalid solution: ", obj[c], " at c#", c, ": ", solution.ToString());
                     assert(false);
                     obj[c] = 0;
                 }
@@ -597,16 +637,18 @@ void MultiRoomIntegerProgramming::Run(AlgorithmResult &out_result)
     LOG_I("Solving using Cbc solver");
     {
         const auto &sc = SCOPE_TIMER_WITH_TRACE("Solving using Cbc solver");
+        auto message_handler = std::make_unique<AlbcCoinMessageHandler>();
         OsiClpSolverInterface solver;
+        solver.setHintParam(OsiDoReducePrint, true, OsiHintTry);
 
         CoinPackedMatrix m(true, row_indices.data(), col_indices.data(), elems.data(), (int)elem_cnt);
         solver.loadProblem(m, col_lb.data(), col_ub.data(), obj.data(), row_lb.data(), row_ub.data());
-        solver.messageHandler()->setLogLevel(1);
-        solver.setHintParam(OsiDoReducePrint, true, OsiHintTry);
         for (int c = 0; c < (int)col_cnt; ++c)
             solver.setInteger(c);
 
         CbcModel model(solver);
+        model.passInMessageHandler(message_handler.get());
+        model.messageHandler()->setLogLevel(1);
         model.setDblParam(CbcModel::CbcMaximumSeconds, params_.solve_time_limit);
         model.setObjSense(-1);
         model.initialSolve();
@@ -658,8 +700,9 @@ void MultiRoomIntegerProgramming::Run(AlgorithmResult &out_result)
                 double prod = obj[c];
                 double time_eff = prod / duration;
                 const auto &room = *rooms_[room_idx];
-                util::append_snprintf(p, l, "Room#%d [Prod %10s][Ord %10s][nSlot %d]: avg %3.f%% (+%3.f%%) (%.2f / %.2f)",
+                util::append_snprintf(p, l, "Room#%d \"%-10s\" [Prod %10s][Ord %10s][nSlot %d]: avg %3.f%% (+%3.f%%) (%.2f / %.2f)",
                                 room_idx,
+                                room.id,
                                 util::enum_to_string(room.room_attributes.prod_type).data(),
                                 util::enum_to_string(room.room_attributes.order_type).data(),
                                 room.max_slot_count,
@@ -728,7 +771,7 @@ void MultiRoomIntegerProgramming::GenCombForRooms(Vector<Vector<SolutionData>> &
         }
 
         room_ranges.push_back(col_cnt);
-        col_cnt += solution_holder.solutions.size();
+        col_cnt += static_cast<UInt32>(solution_holder.solutions.size());
         room_solutions.emplace_back(std::move(solution_holder.solutions));
     }
     LOG_I("Generated ", col_cnt, " combinations.");
@@ -930,7 +973,7 @@ UInt32 MultiRoomIntegerProgramming::GetRoomIdx(UInt32 col, const Vector<UInt32> 
         }
     }
 
-    return room_ranges.size() - 1;
+    return static_cast<UInt32>(room_ranges.size()) - 1;
 }
 UInt32 MultiRoomIntegerProgramming::GetIndexInRoom(UInt32 col, const Vector<UInt32> &room_ranges)
 {

@@ -4,8 +4,7 @@
 #include "albc_common.h"
 
 #define CALBC_HANDLE_DECL(name) \
-    struct name;\
-    typedef struct name name;
+    typedef struct name name;\
 
 #ifndef CALBC_E_PTR
 #   define CALBC_E_PTR AlbcException** e_ptr
@@ -17,9 +16,9 @@
 #   define CALBC_MAYBE_UNUSED
 #endif
 
-#ifdef _WIN32
-#   define CALBC_API CALBC_MAYBE_UNUSED __cdecl ALBC_EXPORT
+#ifdef ALBC_EXPORTS
+#   define CALBC_API CALBC_MAYBE_UNUSED ALBC_EXPORT
 #else
-#   define CALBC_API CALBC_MAYBE_UNUSED
+#   define CALBC_API CALBC_MAYBE_UNUSED ALBC_IMPORT
 #endif
 #endif // CALBC_INTERNAL_H

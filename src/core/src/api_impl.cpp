@@ -2,6 +2,8 @@
 // Created by Nonary on 2022/4/24.
 //
 #include "api_impl.h"
+#include "albc/albc_common.h"
+#include "util_time.h"
 
 namespace albc
 {
@@ -124,6 +126,13 @@ void Character::Impl::AddSkillByGameDataId(const std::string &id)
         throw std::invalid_argument("id cannot be empty");
 
     character_.AddSkillById(id);
+}
+void Character::Impl::AddSkillByIcon(const std::string &icon)
+{
+    if (icon.empty())
+        throw std::invalid_argument("icon cannot be empty");
+
+    character_.AddSkillByIcon(icon);
 }
 void Character::Impl::SetMorale(double morale_val)
 {
@@ -295,10 +304,11 @@ IResult *Model::Impl::GetResult() const
     LOG_D("Creating algorithm params: ", params.GetOperators().size(), " operators, ");
     const auto sc = SCOPE_TIMER_WITH_TRACE("Solving");
     const auto i_runner = api::di::Resolve<algorithm::iface::IRunner>();
-    AlbcSolverParameters sp{.gen_lp_file = false,
-                            .gen_all_solution_details = false,
-                            .solve_time_limit = util::read_attribute(model_parameters, ALBC_MODEL_PARAM_SOLVE_TIME_LIMIT),
-                            .model_time_limit = util::read_attribute(model_parameters, ALBC_MODEL_PARAM_DURATION)};
+    AlbcSolverParameters sp;
+    sp.gen_lp_file = false;
+    sp.gen_all_solution_details = false;
+    sp.solve_time_limit = model_parameters[ALBC_MODEL_PARAM_SOLVE_TIME_LIMIT];
+    sp.model_time_limit = model_parameters[ALBC_MODEL_PARAM_DURATION];
 
     if (sp.model_time_limit <= 0)
         sp.model_time_limit = kDefaultModelTimeLimit;

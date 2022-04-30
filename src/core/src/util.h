@@ -1,36 +1,37 @@
 #pragma once
 #include "albc_types.h"
 #include <cmath>
-#include <cstdint>
+#include <algorithm>
 #include <iostream>
-#include <memory>
-#include <sstream>
 #include <chrono>
 #include <cstdarg>
-#include <cstring>
+#include <sstream>
 #include <thread>
-#include <numeric>
+#include <cstring>
+
+#if __has_include(<cxxabi.h>)
 #include <cxxabi.h>
+#endif
 
 // get filename, without path
 #ifndef __FILENAME__
 #define __FILENAME__ ::detail::strip_path(__FILE__) // NOLINT(bugprone-reserved-identifier)
 #endif
 
-// this marco unrolls the loop for the given number of times, using compiler-specific unrolling
-// place this macro before the loop you want to unroll
-#ifdef __GNUC__ // in gcc, the marco is "#pragma GCC unroll(n)"
+#ifdef __GNUC__
 #define UNROLL_LOOP(n) _Pragma(STRINGIFY(GCC unroll(n)))
 
-#elif defined(__clang__) // in clang, the marco is "#pragma clang loop unroll_count(n)"
+#elif defined(__clang__)
 #define UNROLL_LOOP(n) _Pragma(STRINGIFY(clang loop unroll_count(n)))
 
 #elif defined(ALBC_CONFIG_MSVC)
-#define UNROLL_LOOP(n) _Pragma(STRINGIFY(loop(n)))
+#define UNROLL_LOOP(n) 
 
-#else // if no compiler-specific unrolling is available, the marco is empty
+#else
 #define UNROLL_LOOP(n)
 #endif
+
+#define ALBC_REQUIRES(...) typename std::enable_if_t<(__VA_ARGS__), bool> = true
 
 namespace albc::util
 {
@@ -54,7 +55,7 @@ namespace albc::util
     }
 
     // C(n, k)
-    constexpr UInt64 n_choose_k(const UInt32 n, UInt32 k)
+    constexpr UInt32 n_choose_k(const UInt32 n, UInt32 k)
     {
         if (k > n)
             return 0;
@@ -63,53 +64,13 @@ namespace albc::util
         if (k == 0)
             return 1;
 
-        UInt64 result = n;
+        UInt32 result = n;
         for (UInt32 i = 2; i <= k; ++i)
         {
             result *= (n - i + 1);
             result /= i;
         }
         return result;
-    }
-
-    // indicates whether the build is a debug build
-    constexpr bool is_debug_build()
-    {
-#ifdef NDEBUG
-        return false;
-#else
-        return true;
-#endif
-    }
-
-    // get system architecture
-    constexpr const char *system_architecture()
-    {
-#if defined(__x86_64__) || defined(_M_X64)
-        return "x64";
-#elif defined(__i386) || defined(_M_IX86)
-        return "x86";
-#elif defined(__arm__) || defined(_M_ARM)
-        return "arm";
-#elif defined(__aarch64__) || defined(_M_ARM64)
-        return "arm64";
-#else
-        return "unknown";
-#endif
-    }
-
-    // get system name
-    constexpr const char *system_name()
-    {
-#if defined(__linux__)
-        return "linux";
-#elif defined(__APPLE__)
-        return "macos";
-#elif defined(_WIN32)
-        return "windows";
-#else
-        return "unknown";
-#endif
     }
 
     // convert an enum value to a string, using magic enum
@@ -124,34 +85,10 @@ namespace albc::util
     template <typename T> class enum_size
     {
       public:
-        static constexpr size_t value = magic_enum::enum_count<T>();
+        static constexpr std::size_t value = magic_enum::enum_count<T>();
     };
 
-    template <typename T> constexpr size_t enum_size_v = enum_size<T>::value;
-
-    // join static strings at compile time
-    template <std::string_view const &...Strs> struct join
-    {
-        // Join all strings into a single std::array of chars
-        static constexpr auto impl() noexcept
-        {
-            constexpr std::size_t len = (Strs.size() + ... + 0);
-            std::array<char, len + 1> arr{};
-            auto append = [i = 0, &arr](auto const &s) mutable {
-                for (auto c : s)
-                    arr[i++] = c;
-            };
-            (append(Strs), ...);
-            arr[len] = 0;
-            return arr;
-        }
-        // Give the joined string static storage
-        static constexpr auto arr = impl();
-        // View as a std::string_view
-        static constexpr std::string_view value{arr.data(), arr.size() - 1};
-    };
-    // Helper to get the value out
-    template <std::string_view const &...Strs> static constexpr auto join_v = join<Strs...>::value;
+    template <typename T> constexpr std::size_t enum_size_v = enum_size<T>::value;
 
     template <typename TGet, typename TStore = TGet> class LazySingleton
     {
@@ -168,17 +105,18 @@ namespace albc::util
         }
     };
 
-    template <typename TU> static constexpr bool is_pow_of_two(TU n)
+    template <typename TU> 
+    static constexpr bool is_pow_of_two(TU n)
     {
         return n && (!(n & (n - 1))); // std::has_single_bit(n);
     }
 
-    static constexpr int ctz(UInt32 x)
+    [[maybe_unused]] static int ctz(UInt32 x)
     {
 #if defined(__GNUC__) || defined(__clang__)
         return __builtin_ctz(x);
 #elif defined(_MSC_VER)
-        unsigned long r;
+        unsigned long r = 0;
         _BitScanForward(&r, x);
         return r;
 #elif defined(ffs)
@@ -220,7 +158,7 @@ namespace albc::util
         return std::string{buffer};
     }
 
-    [[maybe_unused]] static int append_snprintf(char *&buffer, size_t &buffer_size, const char *fmt, ...)
+    [[maybe_unused]] static int append_snprintf(char *&buffer, std::size_t &buffer_size, const char *fmt, ...)
     {
         va_list args;
         va_start(args, fmt);
@@ -263,18 +201,54 @@ namespace albc::util
     template <typename T>
     std::string TypeName()
     {
+#ifdef ALBC_HAS_RTTI
+#   if __has_include(<cxxabi.h>)
         int status = 114514;
         std::unique_ptr<char, decltype(&std::free)> result(
             abi::__cxa_demangle(typeid(T).name(), nullptr, nullptr, &status), std::free);
 
         return (status == 0) ? result.get() : typeid(T).name();
+#   else
+        return typeid(T).name();
+#   endif
+#else
+        return "void";
+#endif
     }
 
     template <typename TIter>
     std::string Join(const TIter &begin, const TIter &end, const std::string &sep)
     {
-        return std::accumulate(begin, end, std::string{},
-                               [&sep](const auto &a, const auto &b) { return a + (b.empty() ? "" : sep) += (b); });
+        std::string result;
+        for (auto it = begin; it != end; ++it)
+        {
+            if (!result.empty())
+                result.append(sep);
+            result.append(*it);
+        }
+        return result;
+    }
+
+    template <typename TElem, typename TIter, typename TPred>
+    void ReplaceFirstIf(TIter iter, const TIter& end, const TPred &pred, const TElem &new_value, bool err_on_failure = true)
+    {
+        (void)err_on_failure;
+        auto it = std::find_if(iter, end, pred);
+        if (it != end)
+            *it = new_value;
+        else
+            assert(!err_on_failure && "Failed to replace first element");
+    }
+
+    template <typename TElem, typename TIter>
+    void ReplaceFirst(TIter iter, const TIter & end, const TElem &old_value, const TElem &new_value, bool err_on_failure = true)
+    {
+        (void)err_on_failure;
+        auto it = std::find(iter, end, old_value);
+        if (it != end)
+            *it = new_value;
+        else
+            assert(!err_on_failure && "Failed to replace first element");
     }
 } // namespace albc::util
 

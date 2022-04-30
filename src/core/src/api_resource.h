@@ -4,22 +4,26 @@
 #include "util.h"
 #include "util_json.h"
 
+#include <atomic>
+
 namespace albc::api
 {
 template <typename TIndex, typename TStore,
     std::enable_if_t<std::is_enum_v<TIndex>, bool> = true >
 class ResourceStorage
 {
+    using TUnderlying = std::underlying_type_t<TIndex>;
+
     Array<std::shared_ptr<TStore>, util::enum_size_v<TIndex>> storage_;
     std::atomic<UInt32> version_{0};
     std::shared_ptr<TStore>& operator[](TIndex index)
     {
-        return storage_[static_cast<std::size_t>(index)];
+        return storage_[static_cast<TUnderlying>(index)];
     }
 
     const std::shared_ptr<TStore>& operator[](TIndex index) const
     {
-        return storage_[static_cast<std::size_t>(index)];
+        return storage_[static_cast<TUnderlying>(index)];
     }
 
   public:

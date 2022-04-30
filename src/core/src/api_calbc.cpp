@@ -1,17 +1,12 @@
-#define ALBC_IS_INTERNAL
+#define ALBC_EXPORTS
 #include "albc/calbc.h"
 #include "albc/albc.h"
 #include "api_util.h"
 #include "api_impl.h"
 
-#undef CALBC_API
-#define CALBC_API [[maybe_unused]] ALBC_PUBLIC
+#include <memory>
 
 #include "json/json.h"
-#include "api_util.h"
-#include "util_mem.h"
-
-#include <memory>
 
 CALBC_HANDLE_IMPL(AlbcString, albc::String)
  
@@ -21,7 +16,7 @@ CALBC_API void AlbcTest(const char *game_data_json, const char *player_data_json
 }
 
 
-CALBC_API void AlbcSetLogLevel(AlbcLogLevel level, AlbcException** e_ptr)
+CALBC_API void AlbcSetLogLevel(enum AlbcLogLevel level, AlbcException** e_ptr)
 {
     albc::SetLogLevel(level, e_ptr);
 }
@@ -33,13 +28,13 @@ CALBC_API void AlbcFlushLog(AlbcException** e_ptr)
 }
 
  
-CALBC_API AlbcLogLevel AlbcParseLogLevel(const char *level, AlbcLogLevel default_level, AlbcException** e_ptr)
+CALBC_API enum AlbcLogLevel AlbcParseLogLevel(const char *level, enum AlbcLogLevel default_level, AlbcException **e_ptr)
 {
     return albc::ParseLogLevel(level, default_level, e_ptr);
 }
 
  
-CALBC_API AlbcTestMode AlbcParseTestMode(const char *mode, AlbcTestMode default_mode, AlbcException** e_ptr)
+CALBC_API enum AlbcTestMode AlbcParseTestMode(const char *mode, enum AlbcTestMode default_mode, AlbcException **e_ptr)
 {
     return albc::ParseTestMode(mode, default_mode, e_ptr);
 }
@@ -72,15 +67,15 @@ CALBC_API void AlbcDoLog(AlbcLogLevel level, const char *msg, AlbcException **e_
 }
 
  
-CALBC_API void AlbcSetLogHandler(AlbcLogHandler handler, AlbcException **e_ptr)
+CALBC_API void AlbcSetLogHandler(AlbcLogHandler handler, void* user_data, AlbcException **e_ptr)
 {
-    albc::SetLogHandler(handler, e_ptr);
+    albc::SetLogHandler(handler, user_data, e_ptr);
 }
 
  
-CALBC_API void AlbcSetFlushLogHandler(AlbcFlushLogHandler handler, AlbcException **e_ptr)
+CALBC_API void AlbcSetFlushLogHandler(AlbcFlushLogHandler handler, void* user_data, AlbcException **e_ptr)
 {
-    albc::SetFlushLogHandler(handler, e_ptr);
+    albc::SetFlushLogHandler(handler, user_data, e_ptr);
 }
 
  

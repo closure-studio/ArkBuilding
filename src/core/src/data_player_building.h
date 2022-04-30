@@ -47,7 +47,6 @@ struct PlayerBuildingChar
 
     std::string char_id;
     std::string room_slot_id;
-    time_t last_ap_add_time = 0;
     int ap = 0;
     int index = 0;
     int change_scale = 1;
@@ -83,9 +82,6 @@ struct PlayerBuildingManufacture
     int capacity;
     int ap_cost;
     double process_point;
-
-    time_t last_update_time;
-    time_t complete_work_time;
 };
 
 struct TradingOrderBuff

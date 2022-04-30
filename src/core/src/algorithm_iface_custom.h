@@ -49,6 +49,7 @@ class CustomCharacter
     const std::shared_ptr<data::game::CharacterMetaTable> character_meta_table_;
     Vector<std::string> skill_ids_;
     Vector<std::string> skill_names_;
+    Vector<std::string> skill_icons_;
     data::game::CharIdentifierType id_resolve_type_ = data::game::CharIdentifierType::NONE;
     std::string id_for_resolve_;
     std::string identifier_;
@@ -90,6 +91,11 @@ class CustomCharacter
         skill_ids_.push_back(skill_id);
     }
 
+    void AddSkillByIcon(const std::string &skill_icon)
+    {
+        skill_icons_.push_back(skill_icon);
+    }
+
     void SetMorale(double morale_val)
     {
         morale_ = morale_val;
@@ -97,7 +103,12 @@ class CustomCharacter
 
     [[nodiscard]] std::optional<CustomCharacterData> GenerateCharacterData() const
     {
-        data::game::CharResolveParams params(id_for_resolve_, id_resolve_type_, skill_ids_, skill_names_, phase_,
+        data::game::CharResolveParams params(id_for_resolve_,
+                                             id_resolve_type_,
+                                             skill_ids_,
+                                             skill_names_,
+                                             skill_icons_,
+                                             phase_,
                                              level_);
 
         data::game::CharResolveResult result;

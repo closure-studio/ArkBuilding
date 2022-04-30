@@ -2,6 +2,7 @@
 // Created by Nonary on 2022/4/24.
 //
 #include "algorithm_iface_params.h"
+#include <unordered_set>
 
 namespace albc::algorithm::iface
 {
@@ -26,7 +27,7 @@ model::buff::GlobalAttributeFields GlobalAttributeFactory(const data::player::Pl
             break;
 
         case data::building::RoomType::DORMITORY:
-            dorm_operator_cnt += slot.char_inst_ids.size();
+            dorm_operator_cnt += static_cast<UInt32>(slot.char_inst_ids.size());
             dorm_sum_level += slot.level;
             break;
 
@@ -45,12 +46,12 @@ model::buff::GlobalAttributeFields GlobalAttributeFactory(const data::player::Pl
             gold_prod_line_cnt++;
     }
 
-    model::buff::GlobalAttributeFields attr;
-    write_attribute(attr, GlobalAttributeType::POWER_PLANT_CNT, power_plant_cnt);
-    write_attribute(attr, GlobalAttributeType::TRADING_POST_CNT, trading_post_cnt);
-    write_attribute(attr, GlobalAttributeType::DORM_OPERATOR_CNT, dorm_operator_cnt);
-    write_attribute(attr, GlobalAttributeType::GOLD_PROD_LINE_CNT, gold_prod_line_cnt);
-    write_attribute(attr, GlobalAttributeType::DORM_SUM_LEVEL, dorm_sum_level);
+    GlobalAttributeFields attr;
+    attr[GlobalAttributeType::POWER_PLANT_CNT] = power_plant_cnt;
+    attr[GlobalAttributeType::TRADING_POST_CNT] = trading_post_cnt;
+    attr[GlobalAttributeType::DORM_OPERATOR_CNT] = dorm_operator_cnt;
+    attr[GlobalAttributeType::GOLD_PROD_LINE_CNT] = gold_prod_line_cnt;
+    attr[GlobalAttributeType::DORM_SUM_LEVEL] = dorm_sum_level;
 
     return attr;
 }
@@ -119,7 +120,7 @@ void GenTestModePlayerData(data::player::PlayerDataModel &player_data,
                            const data::building::BuildingData &building_data)
 {
     LOG_W("Model is running under testing mode. All data will be generated to max level.");
-    int inst_id_counter = (int)player_data.troop.chars.size();
+    int inst_id_counter = static_cast<int>(player_data.troop.chars.size());
     std::unordered_set<std::string> char_ids;
     std::transform(player_data.troop.chars.begin(), player_data.troop.chars.end(),
                    std::inserter(char_ids, char_ids.end()), [](const auto &pair) { return pair.second->char_id; });

@@ -1,5 +1,11 @@
 #pragma once
-#define _CRT_SECURE_NO_WARNINGS
+#ifdef _MSC_VER
+#	define _CRT_SECURE_NO_WARNINGS
+#	pragma warning(disable : 4068 4996)
+#   define strdup(p) _strdup(p)
+#endif
+
+#include <cstdlib>
 
 #if !defined(__GNUC__) && !defined(__clang__) && defined(_MSC_VER)
 #   define ALBC_CONFIG_MSVC
@@ -9,7 +15,7 @@
 #   define __PRETTY_FUNCTION__ __FUNCSIG__
 #endif
 
-#define MAGIC_ENUM_RANGE_MIN -128
+#define MAGIC_ENUM_RANGE_MIN (-128)
 #define MAGIC_ENUM_RANGE_MAX 127
 #include "magic_enum.hpp"
 
@@ -69,12 +75,13 @@
 #   define ALBC_LIKELY(x) __builtin_expect(!!(x), 1)
 #   define ALBC_UNLIKELY(x) __builtin_expect(!!(x), 0)
 #   define ALBC_PREFETCH(...) __builtin_prefetch(__VA_ARGS__)
+#   define ALBC_USED __attribute__((used))
 #else
 #   define __attribute__(x)
 #   define ALBC_ATTRIBUTE(attr)
 #   define ALBC_HIDDEN
 #   define ALBC_INTERNAL
-#   define ALBC_PUBLIC __declspec(dllexport) __declspec(dllexport)
+#   define ALBC_PUBLIC __declspec(dllexport)
 #   define ALBC_PUBLIC_NAMESPACE
 #   define ALBC_INLINE __forceinline
 #   define ALBC_NO_INLINE __declspec(noinline)
@@ -88,4 +95,36 @@
 #   define ALBC_LIKELY(x) (x)
 #   define ALBC_UNLIKELY(x) (x)
 #   define ALBC_PREFETCH(...)
+#   define ALBC_USED
+#endif
+
+/*
+ * g++ has_rtti.cpp -o has_rtti && ./has_rtti
+ * g++ -fno-rtti has_rtti.cpp -o has_rtti && ./has_rtti
+ * clang++ has_rtti.cpp -o has_rtti && ./has_rtti
+ * clang++ -fno-rtti has_rtti.cpp -o has_rtti && ./has_rtti
+ * @TODO: add msc++ cli, /GR, /GR-
+ *
+ * Copyright 2017, Andrew Domaszek
+ * All rights reserved.
+ * Program made available under BSD-new license.
+ */
+
+
+#if defined(__clang__)
+#if __has_feature(cxx_rtti)
+#define RTTI_ENABLED
+#endif
+#elif defined(__GNUG__)
+#if defined(__GXX_RTTI)
+#define RTTI_ENABLED
+#endif
+#elif defined(_MSC_VER)
+#if defined(_CPPRTTI)
+#define RTTI_ENABLED
+#endif
+#endif
+
+#ifdef RTTI_ENABLED
+#define ALBC_HAS_RTTI
 #endif

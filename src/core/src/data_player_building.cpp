@@ -18,7 +18,6 @@ BuildingBuffDisplay::BuildingBuffDisplay(const Json::Value &json)
 PlayerBuildingChar::PlayerBuildingChar(const Json::Value &json)
     : char_id(json["charId"].asString()),
       room_slot_id(json["roomSlotId"].asString()),
-      last_ap_add_time(json["lastApAddTime"].asInt64()),
       ap(json["ap"].asInt()),
       index(json["index"].asInt()),
       change_scale(json["changeScale"].asInt()),
@@ -31,9 +30,7 @@ PlayerBuildingManufacture::PlayerBuildingManufacture(const Json::Value &json)
       output_sln_cnt(json["outputSolutionCnt"].asInt()),
       capacity(json["capacity"].asInt()),
       ap_cost(json["apCost"].asInt()),
-      process_point(json["processPoint"].asDouble()),
-      last_update_time(json["lastUpdateTime"].asInt64()),
-      complete_work_time(json["completeWorkTime"].asInt64())
+      process_point(json["processPoint"].asDouble())
 {
     if (!magic_enum::enum_contains<ManufactureFormulaId>(formula_id))
     {

@@ -1,5 +1,5 @@
 #pragma once
-#define ALBC_IS_INTERNAL
+#define ALBC_EXPORTS
 #include "albc/albc_common.h"
 #include "albc_types.h"
 #include "util_log.h"
@@ -42,7 +42,10 @@ struct AlbcObjectHandleBase
     virtual AlbcObjectHandleBase *MakeRef() = 0;
     virtual void SetRef(bool is_ref) = 0;
     virtual bool IsRef() = 0;
-    virtual ~AlbcObjectHandleBase() = default;
+    virtual ~AlbcObjectHandleBase() noexcept(false)
+    {
+        
+    }
 };
 
 template <typename T> struct ReleaseDeleter
@@ -119,7 +122,7 @@ template <typename T> struct AlbcObjectHandle : public AlbcObjectHandleBase
     {
     }
 
-    ~AlbcObjectHandle() override
+    ~AlbcObjectHandle() noexcept(false) override
     {
 #ifdef ALBC_OBJECT_HANDLE_DEBUG
         on_object_handle_destroy(this);
@@ -175,7 +178,7 @@ template <typename T> struct AlbcObjectHandle : public AlbcObjectHandleBase
         LOG_D(__PRETTY_FUNCTION__, ": Unwrapping: ", impl.get(), " ", reset);
 #endif
 
-        auto p = impl.get();
+        T *p = impl.get();
         if (reset)
             impl.reset();
 

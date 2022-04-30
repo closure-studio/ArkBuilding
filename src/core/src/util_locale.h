@@ -29,7 +29,7 @@ class GlobalLocale
 };
 
 // convert from UTF-8 to OS charset
-std::string ToTargetLocale(const std::string_view &src, const char* from_code = nullptr, const char* to_code = nullptr);
+std::string ToTargetLocale(const std::string_view &src, const char* from_code = kDefaultLocale, const char* to_code = kDefaultLocale);
 
 bool CheckTargetLocale(const char* locale);
 }

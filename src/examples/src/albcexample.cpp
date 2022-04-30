@@ -6,12 +6,8 @@
 #include "albc/albc.h"
 #include "util.h"
 
-
 void run()
 {
-#ifdef _WIN32
-    albc::SetGlobalLocale("gbk");
-#endif
     albc::SetLogLevel(ALBC_LOG_LEVEL_ALL);
     albc::LoadGameDataFile(ALBC_GAME_DATA_DB_CHARACTER_TABLE, "../test/character_table.json", THROW_ON_ALBC_ERROR);
     albc::LoadGameDataFile(ALBC_GAME_DATA_DB_BUILDING_DATA, "../test/building_data.json", THROW_ON_ALBC_ERROR);

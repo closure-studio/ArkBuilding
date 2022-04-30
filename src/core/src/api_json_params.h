@@ -2,7 +2,7 @@
 #include "util_json.h"
 #include "data_building.h"
 #include "model_buff_primitives.h"
-#define ALBC_API_JSON_KEY(name, key) constexpr static const char* name = key;
+#define ALBC_API_JSON_KEY(name, key) constexpr static const char* name = key
 namespace albc::api
 {
 enum class JsonRoomType;

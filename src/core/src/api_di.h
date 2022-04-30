@@ -13,7 +13,9 @@
 
 namespace albc::api::di
 {
-inline const auto& GetInjector()
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wunneeded-internal-declaration"
+static const auto& GetInjector()
 {
     static auto injector = boost::di::make_injector(
         boost::di::bind<data::building::BuildingData>().to([] { return GetGlobalGameDataStorage().Resolve<data::building::BuildingData>(ALBC_GAME_DATA_DB_BUILDING_DATA); }),
@@ -28,6 +30,7 @@ inline const auto& GetInjector()
 
     return injector;
 }
+#pragma clang diagnostic pop
 
 template <typename TGet>
 inline std::shared_ptr<TGet> Resolve()

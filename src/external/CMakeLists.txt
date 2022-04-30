@@ -8,7 +8,10 @@ set(CMAKE_WARN_DEPRECATED OFF CACHE BOOL "" FORCE)
 add_subdirectory(backward-cpp)
 
 # Cbc
-set(CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS} "-fPIC") # "dangerous relocation: unsupported relocation" building Cbc on ARM64
+if (NOT MSVC)
+        set(CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS} "-fPIC") # "dangerous relocation: unsupported relocation" building Cbc on ARM64
+endif()
+        
 add_subdirectory(coin)
 set(COIN_LIBS_PATH
         coin/Cbc/CoinUtils
@@ -51,7 +54,7 @@ message(STATUS "Coin include dirs: ${COIN_INCLUDE_DIRS}")
 aux_source_directory(. ALBC_EXTERNAL_SRC_FILES)
 
 add_library(albcexternals 
-        STATIC 
+        OBJECT 
         ${ALBC_EXTERNAL_SRC_FILES})
 
 target_link_libraries(albcexternals 

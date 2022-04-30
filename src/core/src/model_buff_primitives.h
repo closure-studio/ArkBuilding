@@ -1,4 +1,4 @@
-//
+﻿//
 // Created by User on 2022-02-05.
 //
 #pragma once
@@ -119,7 +119,7 @@ enum class GlobalAttributeType
     DORM_SUM_LEVEL = 12,     //宿舍总等级
 };
 
-using GlobalAttributeFields = Array<double, util::enum_size<GlobalAttributeType>::value>;
+using GlobalAttributeFields = util::AttributeFields<double, GlobalAttributeType>;
 
 struct RoomAttributeFields
 {
@@ -181,7 +181,7 @@ struct RoomAttributeModifier
 
     [[nodiscard]] std::string to_string() const;
 
-    static constexpr void init(RoomAttributeModifier &modifier, RoomBuff *buff, RoomBuffType buff_type,
+    static void init(RoomAttributeModifier &modifier, RoomBuff *buff, RoomBuffType buff_type,
                                double eff_delta = 0, int cap_delta = 0, double eff_delta_inc_hour = 0,
                                double max_extra_eff_delta = 0)
     {
@@ -189,9 +189,12 @@ struct RoomAttributeModifier
         modifier.buff_type = buff_type;
 
         modifier.eff_delta = eff_delta;
+        assert(fabs(eff_delta) < 1e25);
         modifier.cap_delta = cap_delta;
+        assert(abs(cap_delta) < 1e25);
 
         modifier.eff_inc_per_hour = eff_delta_inc_hour;
+        assert(fabs(eff_delta_inc_hour) < 1e25);
         modifier.max_extra_eff_delta = max_extra_eff_delta;
     }
 
@@ -214,7 +217,7 @@ struct RoomFinalAttributeModifier : RoomAttributeModifier
 
     [[nodiscard]] std::string to_string() const;
 
-    static constexpr void init(RoomFinalAttributeModifier &modifier, RoomBuff *buff, RoomBuffType buff_type,
+    static void init(RoomFinalAttributeModifier &modifier, RoomBuff *buff, RoomBuffType buff_type,
                                double eff_delta, int cap_delta, double eff_delta_inc_hour,
                                double max_extra_eff_delta, RoomFinalAttributeModifierType final_mod_type,
                                double eff_scale = 1)

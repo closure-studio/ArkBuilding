@@ -1,8 +1,8 @@
 #pragma once
 #include "albc_types.h"
+#include "algorithm_consts.h"
 #include "model_buff.h"
 #include "model_operator.h"
-#include "algorithm_consts.h"
 
 namespace albc::algorithm
 {

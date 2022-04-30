@@ -1,4 +1,4 @@
-//
+﻿//
 // Created by Nonary on 2022/4/24.
 //
 #include "model_buff.h"
@@ -17,11 +17,22 @@ void ModifierApplier::MarkInvalid()
     RoomFinalAttributeModifier::mark_invalid(this->final_mod);
     CharacterCostModifier::mark_invalid(this->cost_mod);
 }
-RoomBuff::RoomBuff() : prototype(static_cast<RoomBuff *>(this))
+RoomBuff::RoomBuff()
+    : owner_inst_id(0),
+    sort_id(0),
+    duration(86400),
+    prototype(static_cast<RoomBuff *>(this)),
+    is_mutex(false)
 {
 }
 RoomBuff::RoomBuff(data::building::RoomType room_type, RoomBuffType inner_type)
-    : inner_type(inner_type), room_type(room_type), prototype(static_cast<RoomBuff *>(this))
+    : owner_inst_id(0),
+      inner_type(inner_type),
+      room_type(room_type),
+      sort_id(0),
+      duration(86400),
+      prototype(static_cast<RoomBuff *>(this)),
+      is_mutex(false)
 {
 }
 bool RoomBuff::ValidateTarget(const RoomModel *room)
@@ -60,31 +71,31 @@ bool RoomBuff::NeedUpdateScope(const ModifierScopeData &data) const
     }
     ALBC_UNREACHABLE();
 }
-BasicInc::BasicInc(const double eff_delta, const int cap_delta, const data::building::RoomType room_type_1,
-                   const RoomBuffType inner_type)
-    : CloneableRoomBuff(room_type_1, inner_type) // 指定房间的效率, 房间容量, 内部类型(用于处理某些同类buff互斥)
+BasicInc::BasicInc(const double eff_delta, const int cap_delta, const data::building::RoomType room_type_val,
+                   const RoomBuffType inner_type_val)
+    : CloneableRoomBuff(room_type_val, inner_type_val) // 指定房间的效率, 房间容量, 内部类型(用于处理某些同类buff互斥)
 {
     RoomAttributeModifier::init(applier.room_mod, this,
-                                inner_type,
+                                inner_type_val,
                                 eff_delta, // eff_delta
                                 cap_delta); // cap_delta
 }
 BasicInc::BasicInc(const double eff_delta, const int cap_delta, const double cost_mod,
-                   const CharCostModifierType cost_mod_type, const data::building::RoomType room_type_1,
-                   const RoomBuffType inner_type)
-    : BasicInc(eff_delta, cap_delta, room_type_1, inner_type)
+                   const CharCostModifierType cost_mod_type, const data::building::RoomType room_type_val,
+                   const RoomBuffType inner_type_val)
+    : BasicInc(eff_delta, cap_delta, room_type_val, inner_type_val)
 {
     CharacterCostModifier::init(applier.cost_mod, this,
                                 cost_mod_type,
                                 cost_mod);
 }
 IncEffOverTime::IncEffOverTime(const double base_eff_delta, const double eff_inc_per_hour,
-                               const double max_extra_eff_inc, const data::building::RoomType room_type_1,
-                               const RoomBuffType inner_type)
-    : CloneableRoomBuff(room_type_1, inner_type)
+                               const double max_extra_eff_inc, const data::building::RoomType room_type_val,
+                               const RoomBuffType inner_type_val)
+    : CloneableRoomBuff(room_type_val, inner_type_val)
 {
     RoomAttributeModifier::init(applier.room_mod, this,
-                                inner_type,
+                                inner_type_val,
                                 base_eff_delta, // eff
                                 0, // cap
                                 eff_inc_per_hour, // eff_delta_inc_hour
@@ -98,8 +109,7 @@ IncEffByPowerPlantCnt::IncEffByPowerPlantCnt(const double addition_per_power_pla
 }
 void IncEffByPowerPlantCnt::UpdateScope(const ModifierScopeData &data)
 {
-    const int power_plant_count =
-        util::read_attribute_as_int(data.room->global_attributes, GlobalAttributeType::POWER_PLANT_CNT);
+    const int power_plant_count = data.room->global_attributes.GetInt(GlobalAttributeType::POWER_PLANT_CNT);
 
     RoomFinalAttributeModifier::init(applier.final_mod, this,
                                      inner_type,
@@ -111,12 +121,12 @@ void IncEffByPowerPlantCnt::UpdateScope(const ModifierScopeData &data)
                                      0); // eff_scale
 }
 IncEffByOtherEffInc::IncEffByOtherEffInc(const double unit_addition, const double unit_factor,
-                                         const double max_extra_addition, const data::building::RoomType room_type_1,
-                                         const RoomBuffType inner_type)
-    : CloneableRoomBuff(room_type_1, inner_type)
+                                         const double max_extra_addition, const data::building::RoomType room_type_val,
+                                         const RoomBuffType inner_type_val)
+    : CloneableRoomBuff(room_type_val, inner_type_val)
 {
     RoomFinalAttributeModifier::init(applier.final_mod, this,
-                                     inner_type,
+                                     inner_type_val,
                                      0,  // eff
                                      0, // cap
                                      0, // eff_inc_hour
@@ -152,9 +162,9 @@ void IncEffByOtherCapInc::UpdateScope(const ModifierScopeData &data)
 }
 IncEffByGlobalAttribute::IncEffByGlobalAttribute(const double unit, const double addition_per_unit,
                                                  const GlobalAttributeType global_attribute_type,
-                                                 const data::building::RoomType room_type_1,
-                                                 const RoomBuffType inner_type)
-    : CloneableRoomBuff(room_type_1, inner_type), unit_(unit), addition_per_unit_(addition_per_unit),
+                                                 const data::building::RoomType room_type_val,
+                                                 const RoomBuffType inner_type_val)
+    : CloneableRoomBuff(room_type_val, inner_type_val), unit_(unit), addition_per_unit_(addition_per_unit),
       global_attribute_type_(global_attribute_type)
 {
     applier.scope.type = ModifierScopeType::DEPEND_ON_ROOM;
@@ -162,9 +172,9 @@ IncEffByGlobalAttribute::IncEffByGlobalAttribute(const double unit, const double
 IncEffByGlobalAttribute::IncEffByGlobalAttribute(const double base_delta, const double unit,
                                                  const double addition_per_unit,
                                                  const GlobalAttributeType global_attribute_type,
-                                                 const data::building::RoomType room_type_1,
-                                                 const RoomBuffType inner_type)
-    : IncEffByGlobalAttribute(unit, addition_per_unit, global_attribute_type, room_type_1, inner_type)
+                                                 const data::building::RoomType room_type_val,
+                                                 const RoomBuffType inner_type_val)
+    : IncEffByGlobalAttribute(unit, addition_per_unit, global_attribute_type, room_type_val, inner_type_val)
 {
     base_delta_ = base_delta;
 }
@@ -172,14 +182,13 @@ void IncEffByGlobalAttribute::UpdateScope(const ModifierScopeData &data)
 {
     RoomAttributeModifier::init(applier.room_mod, this,
                                 inner_type,
-                                base_delta_ + addition_per_unit_ *
-                                              floor(util::read_attribute(data.room->global_attributes, global_attribute_type_)) / unit_);
+                                base_delta_ + addition_per_unit_ * data.room->global_attributes[global_attribute_type_] / unit_);
     // eff
 }
 IncEffByStandardizationCnt::IncEffByStandardizationCnt(const double addition_per_unit,
-                                                       const data::building::RoomType room_type_1,
-                                                       const RoomBuffType inner_type)
-    : CloneableRoomBuff(room_type_1, inner_type), addition_per_unit_(addition_per_unit)
+                                                       const data::building::RoomType room_type_val,
+                                                       const RoomBuffType inner_type_val)
+    : CloneableRoomBuff(room_type_val, inner_type_val), addition_per_unit_(addition_per_unit)
 {
     applier.scope.type = ModifierScopeType::DEPEND_ON_OTHER_CHAR;
 }
@@ -214,7 +223,7 @@ void VodfoxTradeBuff::UpdateScope(const ModifierScopeData &data)
     RoomFinalAttributeModifier::init(applier.final_mod, this,
                                      inner_type,
                                      (data.room->max_slot_count - 1) * 0.45, // eff
-                                     0.,  // cap
+                                     0,  // cap
                                      0., // eff_inc_hour
                                      INFINITY, // max_eff
                                      RoomFinalAttributeModifierType::OVERRIDE_AND_CANCEL_ALL);
@@ -360,7 +369,7 @@ void TexasTradeBuff::UpdateScope(const ModifierScopeData &data)
     RoomAttributeModifier::init(this->applier.room_mod, this,
                                 inner_type,
                                 eff_delta, // eff_delta
-                                0.); // cap_delta
+                                0); // cap_delta
 
     CharacterCostModifier::init(this->applier.cost_mod, this,
                                 CharCostModifierType::SELF,

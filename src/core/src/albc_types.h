@@ -1,6 +1,8 @@
 #pragma once
+#include "albc_config.h"
 #pragma clang diagnostic push
 #pragma ide diagnostic ignored "OCUnusedStructInspection"
+
 #include <array>
 #include <cassert>
 #include <list>
@@ -11,12 +13,10 @@
 #include <vector>
 #include <bitset>
 #include <cstdint>
-
-#include "albc_config.h"
+#include <cstddef>
 
 namespace albc
 {
-
 template <typename TKey, typename TValue>
 using Dictionary = std::map<TKey, TValue>;
 
@@ -29,10 +29,10 @@ using Vector = std::vector<T>;
 template <typename T>
 using Set = std::set<T>;
 
-template <typename T1, size_t N>
+template <typename T1, std::size_t N>
 using Array = std::array<T1, N>;
 
-template <size_t N>
+template <std::size_t N>
 using BitSet = std::bitset<N>;
 
 using Int32 = int32_t;

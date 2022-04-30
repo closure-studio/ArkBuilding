@@ -5,7 +5,6 @@
 #include <iomanip>
 #include <iostream>
 #include <mutex>
-#include <queue>
 #include <sstream>
 #include <functional>
 
@@ -13,47 +12,47 @@
 #define ALBC_DISABLE_THREADED_LOGGING // AddressSanitizer causes segfault on concurrent queue
 #endif
 
+#ifndef ALBC_ENABLE_THREADED_LOGGING
+#define ALBC_DISABLE_THREADED_LOGGING
+#endif
+
 #ifndef ALBC_DISABLE_THREADED_LOGGING
 #include <condition_variable>
 #include "blockingconcurrentqueue.h"
 #endif
 
-#define ALBC_LOG_UNIQUE2(name, id) $##name##$##id
-#define ALBC_LOG_UNIQUE(name, id) ALBC_LOG_UNIQUE2(name, id)
-
-#define ALBC_LOG_CONSTEXPR_STRING_VIEW(n, s) static constexpr std::string_view n = s;
-
-#define ALBC_LOG_COMPILE_TIME_BUILD_TAG(name, id)                                                                      \
-    ALBC_LOG_CONSTEXPR_STRING_VIEW(ALBC_LOG_UNIQUE(filename, id), __FILENAME__)                                        \
-    ALBC_LOG_CONSTEXPR_STRING_VIEW(ALBC_LOG_UNIQUE(funcname, id), __func__)                                        \
-    ALBC_LOG_CONSTEXPR_STRING_VIEW(ALBC_LOG_UNIQUE(line, id), STRINGIFY(__LINE__))                                     \
-    static constexpr std::string_view ALBC_LOG_UNIQUE(name, id) =                                                      \
-        albc::util::join_v<ALBC_LOG_UNIQUE(filename, id), albc::util::kColonSep, ALBC_LOG_UNIQUE(funcname, id), \
-                           albc::util::kColonSep, ALBC_LOG_UNIQUE(line, id), albc::util::kBarSep>;
-
-#define ALBC_LOG_DO_S_LOG(id, target, ...)                                                                             \
-    do                                                                                                                 \
-    {                                                                                                                  \
-        ALBC_LOG_COMPILE_TIME_BUILD_TAG(loc, id)                                                                       \
-        albc::util::VariantPut(target, ALBC_LOG_UNIQUE(loc, id), __VA_ARGS__) << std::endl;                     \
+#define ALBC_LOG_DO_S_LOG(id, target, ...)                                                                                  \
+    do                                                                                                                      \
+    {                                                                                                                       \
+        albc::util::VariantPutLn(target, __VA_ARGS__);                                                                      \
     } while (false)
 
 #define S_LOG(target, ...) ALBC_LOG_DO_S_LOG(__COUNTER__, target, __VA_ARGS__)
 
-#define LOG(level, ...) S_LOG(albc::util::Logger()(level), __VA_ARGS__)
-#define LOG_D(...) LOG(albc::util::LogLevel::DEBUG, __VA_ARGS__)
-#define LOG_I(...) LOG(albc::util::LogLevel::INFO, __VA_ARGS__)
-#define LOG_W(...) LOG(albc::util::LogLevel::WARN, __VA_ARGS__)
-#define LOG_E(...) LOG(albc::util::LogLevel::ERROR, __VA_ARGS__)
+#define LOG_TRACED(level, ...) S_LOG(albc::util::Logger()(level), __FILENAME__, ":", __func__, ":", STRINGIFY(__LINE__), "|", __VA_ARGS__)
+#define LOG_D(...) LOG_TRACED(albc::util::LogLevel::DEBUG, __VA_ARGS__)
+#define LOG_I(...) LOG_TRACED(albc::util::LogLevel::INFO, __VA_ARGS__)
+#define LOG_W(...) LOG_TRACED(albc::util::LogLevel::WARN, __VA_ARGS__)
+#define LOG_E(...) LOG_TRACED(albc::util::LogLevel::ERROR, __VA_ARGS__)
+#define LOG_TRACED_DETAIL(level, ...) S_LOG(albc::util::Logger()(level), __FILENAME__, ":", __PRETTY_FUNCTION__, ":", STRINGIFY(__LINE__), "|", __VA_ARGS__)
+#define LOG_D_DETAIL(...) LOG_TRACED_DETAIL(albc::util::LogLevel::DEBUG, __VA_ARGS__)
+#define LOG_I_DETAIL(...) LOG_TRACED_DETAIL(albc::util::LogLevel::INFO, __VA_ARGS__)
+#define LOG_W_DETAIL(...) LOG_TRACED_DETAIL(albc::util::LogLevel::WARN, __VA_ARGS__)
+#define LOG_E_DETAIL(...) LOG_TRACED_DETAIL(albc::util::LogLevel::ERROR, __VA_ARGS__)
 
 namespace albc::util
 {
-static constexpr std::string_view kBarSep = "|";
-static constexpr std::string_view kColonSep = ":";
 
-template <typename Out, typename... Args> auto VariantPut(Out &os, Args &&...args) -> decltype((os << ... << args))
+template <typename Out, typename... Args>
+auto VariantPut(Out &os, Args &&...args) -> decltype((os << ... << args))
 {
     return (os << ... << args);
+}
+
+template <typename Out, typename... Args>
+void VariantPutLn(Out &os, Args &&...args)
+{
+    (os << ... << args) << std::endl;
 }
 
 enum class LogLevel
@@ -68,9 +67,49 @@ enum class LogLevel
 
 class GlobalLogConfig
 {
-  public:
-    using LogCallback = void (*)(const char *);
-    using FlushLogCallback = void (*)();
+public:
+    using LogCallback = bool (*)(unsigned long logger_id, const char *msg, void *user_data);
+    using FlushLogCallback = bool (*)(unsigned long logger_id, void *user_data);
+
+    struct LogHandler
+    {
+    public:
+        LogHandler() = default;
+
+        LogHandler(LogCallback cb, void *data)
+            : cb(cb), data(data)
+        {
+        }
+
+        bool operator()(unsigned long logger_id, const char *msg) const
+        {
+            return cb != nullptr && cb(logger_id, msg, data);
+        }
+
+    private:
+        LogCallback cb;
+        void *data;
+    };
+
+    struct FlushLogHandler
+    {
+    public:
+        FlushLogHandler() = default;
+
+        FlushLogHandler(FlushLogCallback cb, void *data)
+            : cb(cb), data(data)
+        {
+        }
+
+        bool operator()(unsigned long logger_id) const
+        {
+            return cb != nullptr && cb(logger_id, data);
+        }
+
+    private:
+        FlushLogCallback cb;
+        void *data;
+    };
 
     static LogLevel GetLogLevel()
     {
@@ -88,45 +127,41 @@ class GlobalLogConfig
         return log_level_ <= level;
     }
 
-    static void SetLogCallback(LogCallback callback)
+    static void SetLogCallback(LogCallback callback, void *data)
     {
         std::lock_guard lock(mutex_);
-        log_callback_ = callback;
+        log_handler_ = LogHandler(callback, data);
     }
 
-    static LogCallback GetLogCallback()
+    static const LogHandler &GetLogCallback()
     {
-        return log_callback_;
+        return log_handler_;
     }
 
-    static void SetFlushLogCallback(FlushLogCallback callback)
+    static void SetFlushLogCallback(FlushLogCallback callback, void *data)
     {
         std::lock_guard lock(mutex_);
-        flush_log_callback_ = callback;
+        flush_log_handler_ = FlushLogHandler(callback, data);
     }
 
-    static FlushLogCallback GetFlushLogCallback()
+    static const FlushLogHandler &GetFlushLogCallback()
     {
-        return flush_log_callback_;
+        return flush_log_handler_;
     }
 
-  private:
+private:
     inline static LogLevel log_level_;
     inline static std::mutex mutex_;
-    inline static LogCallback log_callback_;
-    inline static FlushLogCallback flush_log_callback_;
+    inline static LogHandler log_handler_;
+    inline static FlushLogHandler flush_log_handler_;
 };
 
 struct DefaultLogPrinter
 {
-    static void Print(std::string content)
+    static void Print(unsigned long logger_id, const std::string &content)
     {
-        auto global_log_cb = GlobalLogConfig::GetLogCallback();
-        if (global_log_cb)
-        {
-            global_log_cb(content.c_str());
+        if (GlobalLogConfig::GetLogCallback()(logger_id, content.c_str()))
             return;
-        }
 
         std::cout << content;
         if (content.back() != '\n')
@@ -135,14 +170,10 @@ struct DefaultLogPrinter
         }
     }
 
-    static void Flush()
+    static void Flush(unsigned long logger_id)
     {
-        auto global_flush_log_cb = GlobalLogConfig::GetFlushLogCallback();
-        if (global_flush_log_cb)
-        {
-            global_flush_log_cb();
+        if (GlobalLogConfig::GetFlushLogCallback()(logger_id))
             return;
-        }
 
         std::cout.flush();
     }
@@ -150,7 +181,7 @@ struct DefaultLogPrinter
 
 template <typename TPrinter = DefaultLogPrinter> class ThreadedConsoleLogger
 {
-  public:
+public:
     ~ThreadedConsoleLogger()
     {
         Flush();
@@ -191,13 +222,14 @@ template <typename TPrinter = DefaultLogPrinter> class ThreadedConsoleLogger
             Print(str);
         }
 #endif
-        TPrinter::Flush();
+        TPrinter::Flush(kDefaultLoggerId);
     }
 
-  private:
+private:
+    static constexpr unsigned long kDefaultLoggerId = 0;
 #ifndef ALBC_DISABLE_THREADED_LOGGING
-    moodycamel::BlockingConcurrentQueue<std::string> queue_ { 4096 };
-    std::thread thread_ { std::bind(&ThreadedConsoleLogger::MainLoop, this) };
+    moodycamel::BlockingConcurrentQueue<std::string> queue_{4096};
+    std::thread thread_{&ThreadedConsoleLogger::MainLoop, this};
 #endif
     bool running_ = true;
 
@@ -219,7 +251,7 @@ template <typename TPrinter = DefaultLogPrinter> class ThreadedConsoleLogger
 
             if (!running_)
             {
-                TPrinter::Flush();
+                TPrinter::Flush(kDefaultLoggerId);
                 break;
             }
         }
@@ -228,7 +260,7 @@ template <typename TPrinter = DefaultLogPrinter> class ThreadedConsoleLogger
 
     static void Print(const std::string &str)
     {
-        TPrinter::Print(ToTargetLocale(str));
+        TPrinter::Print(kDefaultLoggerId, ToTargetLocale(str));
     }
 };
 
@@ -236,7 +268,7 @@ using SingletonLogger = util::LazySingleton<ThreadedConsoleLogger<DefaultLogPrin
 
 class Logger
 {
-  public:
+public:
     typedef std::ostream &(*ManipFn)(std::ostream &);
     typedef std::ios_base &(*FlagsFn)(std::ios_base &);
 
@@ -281,18 +313,18 @@ class Logger
         if (GlobalLogConfig::CanLog(m_logLevel))
         {
             SingletonLogger::instance()->Log(m_logLevel, std::move(std::string("ALBC|")
-                                                                       .append(util::GetReadableTime())
-                                                                       .append("|")
-                                                                       .append(util::get_current_thread_id())
-                                                                       .append(GetLogLevelTag(m_logLevel))
-                                                                       .append(m_stream.str())));
+                                                                   .append(util::GetReadableTime())
+                                                                   .append("|")
+                                                                   .append(util::get_current_thread_id())
+                                                                   .append(GetLogLevelTag(m_logLevel))
+                                                                   .append(m_stream.str())));
         }
 
         m_stream.str(std::string());
         m_stream.clear();
     }
 
-  private:
+private:
     std::stringstream m_stream;
     LogLevel m_logLevel = LogLevel::INFO;
 

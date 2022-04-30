@@ -32,10 +32,13 @@
 5. （可选）房间属性（见[房间属性说明](#房间属性说明)）
 
 #### 单个干员需要提供的参数：
-干员可选择提供以下三种参数来解析其拥有的技能：
-* `干员名称/ID/任意标识符`
-* `精英阶段 + 等级`
-* `若干个技能的名称/ID`
+干员可选择提供以下若干种参数的有效组合（后文有提到）来解析其拥有的技能：
+
+| 参数类型                               | 备注                                                                                                             |
+|------------------------------------|----------------------------------------------------------------------------------------------------------------|
+| `干员名称/ID/任意标识符`                    | -                                                                                                              |
+| `精英阶段 + 等级`                        | -                                                                                                              |
+| `若干个技能的 {名称/ID} 列表或 { 技能图标ID } 列表` | 两种列表选其一，如`["trade_ord_spd&cost_P[000]", "默契"]`（名称/ID列表）或`["bskill_tra_texas1", "bskill_tra_texas2"]`（技能图标ID列表） |
 
 以及用于代入计算的参数：
 * `心情 (0, 24]`
@@ -81,53 +84,7 @@
 | calbc.h | C 接口   |
 
 ## 命令行程序使用方法
-```console
-$ albccli -h
-Usage:
-  albccli [options]
-Available options:
-  -p, --playerdata       Path to player data file. 
-                           PATH                            : string
-  -g, --gamedata         Path to Arknights building data file.
-                           PATH                            : string
-  -l, --log-level        Log level.
-                           Default is WARN.
-                           <DEBUG|INFO|WARN|ERROR>         : string
-  -t, --model-max-time   Model time limit in seconds.
-                           Default is 57600 (16 hours).
-                           TIME                            : double
-  -T, --sovle-max-time   Problem solving timeout in seconds.
-                           Default is 20.
-                           TIME                            : double
-  -m, --test-mode        Test mode. Leave empty for normal mode.
-                           <ONCE|SEQUENTIAL|PARALLEL>      : string
-  -P, --test-param       Test param.
-                           NUM_CONCURRENCY|NUM_ITERATIONS  : int
-  -L, --lp-file          Generate a lp-format file describing the problem.
-                              : FLAG
-  -S, --solution-detail  Generate a text file describing all feasible solution.
-                              : FLAG
-  -a, --all-ops          Show all operators info.
-                              : FLAG
-  -h, --help             Produce help message.
-                              : FLAG
-```
-
-除 ONCE 外， `-m {测试模式}` 应与 `-P {测试参数}` 同时使用。
-
-| 测试模式       | 测试参数      |
-|------------|-----------|
-| ONCE       | 不要求测试参数   |
-| SEQUENTIAL | 依次运行的测试次数 |
-| PARALLEL   | 并行运行的测试次数 |
-
-例（测试数据位于`test/`目录中）：
-```console
-$ albccli -p test/player_data.json -g test/building_data.json -c test/character_table_.json -m ONCE -l INFO -L -S
-```
-该命令将运行一次测试，并将包含描述整数规划问题的 .lp 格式文件、全部组合的详细信息输出到工作目录。
-
-// TODO: More info
+// TODO: CLI
 
 ## API 使用
 [API 示例](https://github.com/closure-studio/ArkBuilding/tree/main/src/examples/src)
@@ -173,7 +130,16 @@ JSON 中的所有数据约定[同上](#使用)
         "标准化·β"
       ],
       "morale": 24,
-    }
+    },
+    // 干员 + 图标列表
+    "刻俄柏": {
+      name: "刻俄柏",
+      "skills": [
+        "bskill_man_limit&cost1",
+        "bskill_man_spd_add1"
+      ],
+      "morale": 24,
+    },
     // ... 以下省略其他干员，完整例可见 src/examples/src/json_input.cpp
   },
   "rooms": {
@@ -231,18 +197,18 @@ JSON 中的所有数据约定[同上](#使用)
 |--------------------------------|------------|---------|-------------------------------|
 | `modelTimeLimit`               | `double`   | `57600` | 模型时间限制，代表计算持续的时间。             |
 | `solveTimeLimit`               | `double`   | `60`    | Cbc 求解器的超时。                   |
-| `chars`                        | `object`   |         | 键供在输出中区分使用，与代入模型计算的干员名称/ID不同。 |
-| `chars[identifier].name`       | `string`   |         | 干员名称                          |
-| `chars[identifier].id`         | `string`   |         | 干员ID                          |
-| `chars[identifier].phase`      | `int`      |         | `{0, 1, 2}` 干员精英阶段            |
-| `chars[identifier].level`      | `int`      |         | `[0, 90]` 干员等级                |
+| `chars`                        | `object`   | -       | 键供在输出中区分使用，与代入模型计算的干员名称/ID不同。 |
+| `chars[identifier].name`       | `string`   | -       | 干员名称                          |
+| `chars[identifier].id`         | `string`   | -       | 干员ID                          |
+| `chars[identifier].phase`      | `int`      | -       | `{0, 1, 2}` 干员精英阶段            |
+| `chars[identifier].level`      | `int`      | -       | `[0, 90]` 干员等级                |
 | `chars[identifier].morale`     | `double`   | `24`    | `(0, 24]` 干员心情值               |
-| `chars[identifier].skills`     | `string[]` |         | 干员技能名称/ID                     |
-| `rooms`                        | `object`   |         | 键供在输出中区分使用。                   |
-| `rooms[identifier].type`       | `string`   |         | 房间类型，见下述表格                    |
-| `rooms[identifier].prodType`   | `string`   |         | 产品类型，见下述表格。                   |
-| `rooms[identifier].slots`      | `int`      |         | 房间槽位数                         |
-| `rooms[identifier].attributes` | `object`   |         | 房间属性，见下述表格                    |
+| `chars[identifier].skills`     | `string[]` | -       | 干员技能名称/ID列表或图标ID列表            |
+| `rooms`                        | `object`   | -       | 键供在输出中区分使用。                   |
+| `rooms[identifier].type`       | `string`   | -       | 房间类型，见下述表格                    |
+| `rooms[identifier].prodType`   | `string`   | -       | 产品类型，见下述表格。                   |
+| `rooms[identifier].slots`      | `int`      | -       | 房间槽位数                         |
+| `rooms[identifier].attributes` | `object`   | -       | 房间属性，见下述表格                    |
 
 ##### 房间类型说明
 | 房间类型 | 名称            | 产品类型                                        |
@@ -320,10 +286,18 @@ JSON 中的所有数据约定[同上](#使用)
 | `errors.errors`              | `string[]` | 全局产生的错误信息。每个项目一行。                                       |
 
 
-## 构建源码（目前在 CMake + Windows MSYS2 MinGW / Linux GCC, x64 / ARM64 上经过测试） 
+## 构建源码
+项目 C++ 标准为 C++ 17，目前支持使用 CMake 配置。
+
+### 目前测试过的环境：
+* Windows GCC 11.2.0 x86_64-w64-mingw32
+* Linux GCC 10.2.1, x86_64 / ARM64
+* Windows MSVC 17.1 x86_64
+
+如果你遇到了构建/集成的问题，欢迎提出。
+
 1. 环境
-   * GCC 9.0+
-   * CMake （未确定版本，如出现不兼容请尽量升级到最新版）
+   * GCC 9.0+ / MSVC 14.1+
 
 2. CMake
     ```console

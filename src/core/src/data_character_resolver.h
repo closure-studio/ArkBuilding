@@ -20,6 +20,7 @@ class CharResolveParams
     CharIdentifierType identifier_type_;
     const Vector<std::string>& skill_ids_;
     const Vector<std::string>& skill_names_;
+    const Vector<std::string>& skill_icons_;
     bool warn_on_failure_;
 
   public:
@@ -28,6 +29,7 @@ class CharResolveParams
         CharIdentifierType id_type,
         const Vector<std::string>& skill_ids_val,
         const Vector<std::string>& skill_names_val,
+        const Vector<std::string>& skill_icons_val,
         EvolvePhase phase_val = EvolvePhase::PHASE_0,
         int level_val = -1,
         bool warn_if_not_found_val = true);
@@ -58,7 +60,7 @@ class CharacterResolver : public ICharacterResolver
     std::shared_ptr<ICharacterLookupTable> character_lookup_table_;
 
     static bool QueryChar(const ISkillLookupTable& table,
-                          ISkillLookupTable::CharQueryItem& result,
+                          ISkillLookupTable::CharQueryEntry & result,
                           const Vector<std::string>&skill_keys, const std::string& char_id);
 
   public:

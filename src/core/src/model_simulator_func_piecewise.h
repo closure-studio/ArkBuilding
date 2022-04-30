@@ -1,4 +1,4 @@
-#pragma clang diagnostic push
+﻿#pragma clang diagnostic push
 #pragma ide diagnostic ignored "Simplify"
 #pragma once
 #include "albc_types.h"

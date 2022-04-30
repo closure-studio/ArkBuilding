@@ -10,7 +10,6 @@
 #include "model_operator.h"
 
 #include <bitset>
-#include <unordered_set>
 
 namespace albc::algorithm::iface
 {

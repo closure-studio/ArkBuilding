@@ -1,10 +1,11 @@
-#pragma clang diagnostic push
-#pragma ide diagnostic ignored "OCUnusedGlobalDeclarationInspection"
 #pragma once
 #include "data_game.h"
 #include "util_json.h"
 #include "albc_types.h"
 #include "util.h"
+
+#pragma clang diagnostic push
+#pragma ide diagnostic ignored "OCUnusedGlobalDeclarationInspection"
 
 namespace albc::data::building
 {
@@ -74,6 +75,7 @@ class BuildingBuff
   public:
     std::string buff_id;
     std::string buff_name;
+    std::string skill_icon;
     int sort_id;
     RoomType room_type;
     std::string description;

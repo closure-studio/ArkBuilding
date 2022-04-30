@@ -1,4 +1,4 @@
-#define ALBC_IS_INTERNAL
+#define ALBC_EXPORTS
 #include "albc/albc.h"
 #include "api_impl.h"
 
@@ -6,15 +6,13 @@
 #include "api_util.h"
 #include "util_log.h"
 #include "util_mem.h"
+#include "util_time.h"
 #include "albc_types.h"
 #include "data_character_table.h"
 #include "api_json_params.h"
 #include "api_di.h"
 
-#include <cstdarg>
 #include <memory>
-#undef ALBC_API
-#define ALBC_API [[maybe_unused]] ALBC_PUBLIC
 
 #pragma clang diagnostic push
 #pragma ide diagnostic ignored "OCUnusedGlobalDeclarationInspection"
@@ -47,7 +45,7 @@ ALBC_API void *realloc(void *ptr, std::size_t size) noexcept
 #endif
     return ret;
 }
-ALBC_API String::String() noexcept
+ALBC_API_MEMBER String::String() noexcept
 {
     try
     {
@@ -56,7 +54,7 @@ ALBC_API String::String() noexcept
     ALBC_API_CATCH_AND_TRANSLATE_EXCEPTION(nullptr,
                                            "calling API") // __FUNCTION__ adn __LINE__ is included in LOG_E macro
 }
-ALBC_API String::String(const char *str) noexcept
+ALBC_API_MEMBER String::String(const char *str) noexcept
 {
     try
     {
@@ -64,7 +62,7 @@ ALBC_API String::String(const char *str) noexcept
     }
     ALBC_API_CATCH_AND_TRANSLATE_EXCEPTION(nullptr, "calling API")
 }
-ALBC_API String::String(const String &str) noexcept
+ALBC_API_MEMBER String::String(const String &str) noexcept
 {
     try
     {
@@ -73,13 +71,13 @@ ALBC_API String::String(const String &str) noexcept
     ALBC_API_CATCH_AND_TRANSLATE_EXCEPTION(nullptr, "calling API")
 }
 
-ALBC_API String::String(String &&str) noexcept
+ALBC_API_MEMBER String::String(String &&str) noexcept
+    : impl_(str.impl_)
 {
-    impl_ = str.impl_;
     str.impl_ = nullptr;
     // this shouldn't throw
 }
-ALBC_API String::~String() noexcept
+ALBC_API_MEMBER String::~String() noexcept
 {
     try
     {
@@ -87,7 +85,7 @@ ALBC_API String::~String() noexcept
     }
     ALBC_API_CATCH_AND_TRANSLATE_EXCEPTION(nullptr, "calling API")
 }
-ALBC_API String &String::operator=(const char *str) noexcept
+ALBC_API_MEMBER String &String::operator=(const char *str) noexcept
 {
     try
     {
@@ -96,7 +94,7 @@ ALBC_API String &String::operator=(const char *str) noexcept
     ALBC_API_CATCH_AND_TRANSLATE_EXCEPTION(nullptr, "calling API")
     return *this;
 }
-ALBC_API String &String::operator=(const String &str) noexcept
+ALBC_API_MEMBER String &String::operator=(const String &str) noexcept
 {
     if (this != &str)
     {
@@ -108,7 +106,7 @@ ALBC_API String &String::operator=(const String &str) noexcept
     }
     return *this;
 }
-ALBC_API String &String::operator=(String &&str) noexcept
+ALBC_API_MEMBER String &String::operator=(String &&str) noexcept
 {
     if (this != &str)
     {
@@ -122,11 +120,11 @@ ALBC_API String &String::operator=(String &&str) noexcept
     }
     return *this;
 }
-ALBC_API const char *String::c_str() const noexcept
+ALBC_API_MEMBER const char *String::c_str() const noexcept
 {
     return impl_->c_str();
 }
-ALBC_API size_t String::size() const noexcept
+ALBC_API_MEMBER std::size_t String::size() const noexcept
 {
     return impl_->size();
 }
@@ -135,7 +133,7 @@ ALBC_API void DoLog(AlbcLogLevel level, const char *message, AlbcException **e_p
 {
     try
     {
-        LOG(static_cast<util::LogLevel>(level), message);
+        LOG_TRACED(static_cast<util::LogLevel>(level), message);
     }
     ALBC_API_CATCH_AND_TRANSLATE_EXCEPTION(e_ptr, "calling API")
 }
@@ -155,19 +153,19 @@ ALBC_API void FlushLog(AlbcException **e_ptr) noexcept
     }
     ALBC_API_CATCH_AND_TRANSLATE_EXCEPTION(e_ptr, "calling API")
 }
-ALBC_API void SetLogHandler(AlbcLogHandler handler, AlbcException **e_ptr) noexcept
+ALBC_API void SetLogHandler(AlbcLogHandler handler, void *user_data, AlbcException **e_ptr) noexcept
 {
     try
     {
-        util::GlobalLogConfig::SetLogCallback(handler);
+        util::GlobalLogConfig::SetLogCallback(handler, user_data);
     }
     ALBC_API_CATCH_AND_TRANSLATE_EXCEPTION(e_ptr, "calling API")
 }
-ALBC_API void SetFlushLogHandler(AlbcFlushLogHandler handler, AlbcException **e_ptr) noexcept
+ALBC_API void SetFlushLogHandler(AlbcFlushLogHandler handler, void *user_data, AlbcException **e_ptr) noexcept
 {
     try
     {
-        util::GlobalLogConfig::SetFlushLogCallback(handler);
+        util::GlobalLogConfig::SetFlushLogCallback(handler, user_data);
     }
     ALBC_API_CATCH_AND_TRANSLATE_EXCEPTION(e_ptr, "calling API")
 }
@@ -282,7 +280,7 @@ ALBC_API ICharQuery *QueryChar(int n, const char* const* skill_keys, const char 
     ALBC_API_CATCH_AND_TRANSLATE_EXCEPTION(nullptr, "calling API")
     return nullptr;
 }
-ALBC_API Model *Model::FromFile(const char *player_data_path, AlbcException **e_ptr) noexcept
+ALBC_API_MEMBER Model *Model::FromFile(const char *player_data_path, AlbcException **e_ptr) noexcept
 {
     try
     {
@@ -296,7 +294,7 @@ ALBC_API Model *Model::FromFile(const char *player_data_path, AlbcException **e_
     ALBC_API_CATCH_AND_TRANSLATE_EXCEPTION(e_ptr, "calling API")
     return nullptr;
 }
-ALBC_API Model *Model::FromJson(const char *player_data_json, AlbcException **e_ptr) noexcept
+ALBC_API_MEMBER Model *Model::FromJson(const char *player_data_json, AlbcException **e_ptr) noexcept
 {
     try
     {
@@ -310,7 +308,7 @@ ALBC_API Model *Model::FromJson(const char *player_data_json, AlbcException **e_
     ALBC_API_CATCH_AND_TRANSLATE_EXCEPTION(e_ptr, "calling API")
     return nullptr;
 }
-ALBC_API Model::~Model() noexcept
+ALBC_API_MEMBER Model::~Model() noexcept
 {
     try
     {
@@ -318,7 +316,7 @@ ALBC_API Model::~Model() noexcept
     }
     ALBC_API_CATCH_AND_TRANSLATE_EXCEPTION(nullptr, "calling API")
 }
-ALBC_API void Model::AddCharacter(Character *character, AlbcException **e_ptr) noexcept
+ALBC_API_MEMBER void Model::AddCharacter(Character *character, AlbcException **e_ptr) noexcept
 {
     try
     {
@@ -326,7 +324,7 @@ ALBC_API void Model::AddCharacter(Character *character, AlbcException **e_ptr) n
     }
     ALBC_API_CATCH_AND_TRANSLATE_EXCEPTION(e_ptr, "calling API")
 }
-ALBC_API void Model::AddRoom(Room *room, AlbcException **e_ptr) noexcept
+ALBC_API_MEMBER void Model::AddRoom(Room *room, AlbcException **e_ptr) noexcept
 {
     try
     {
@@ -334,7 +332,7 @@ ALBC_API void Model::AddRoom(Room *room, AlbcException **e_ptr) noexcept
     }
     ALBC_API_CATCH_AND_TRANSLATE_EXCEPTION(e_ptr, "calling API")
 }
-ALBC_API void Model::RemoveCharacter(Character *character, AlbcException **e_ptr) noexcept
+ALBC_API_MEMBER void Model::RemoveCharacter(Character *character, AlbcException **e_ptr) noexcept
 {
     try
     {
@@ -342,7 +340,7 @@ ALBC_API void Model::RemoveCharacter(Character *character, AlbcException **e_ptr
     }
     ALBC_API_CATCH_AND_TRANSLATE_EXCEPTION(e_ptr, "calling API")
 }
-ALBC_API void Model::RemoveRoom(Room *room, AlbcException **e_ptr) noexcept
+ALBC_API_MEMBER void Model::RemoveRoom(Room *room, AlbcException **e_ptr) noexcept
 {
     try
     {
@@ -350,7 +348,7 @@ ALBC_API void Model::RemoveRoom(Room *room, AlbcException **e_ptr) noexcept
     }
     ALBC_API_CATCH_AND_TRANSLATE_EXCEPTION(e_ptr, "calling API")
 }
-ALBC_API void Model::SetDblParam(AlbcModelParamType type, double value, AlbcException **e_ptr) noexcept
+ALBC_API_MEMBER void Model::SetDblParam(AlbcModelParamType type, double value, AlbcException **e_ptr) noexcept
 {
     try
     {
@@ -363,7 +361,7 @@ ALBC_API void Model::SetDblParam(AlbcModelParamType type, double value, AlbcExce
     }
     ALBC_API_CATCH_AND_TRANSLATE_EXCEPTION(e_ptr, "calling API")
 }
-ALBC_API IResult *Model::GetResult(AlbcException **e_ptr) noexcept
+ALBC_API_MEMBER IResult *Model::GetResult(AlbcException **e_ptr) noexcept
 {
     try
     {
@@ -372,7 +370,7 @@ ALBC_API IResult *Model::GetResult(AlbcException **e_ptr) noexcept
     ALBC_API_CATCH_AND_TRANSLATE_EXCEPTION(e_ptr, "calling API")
     return nullptr;
 }
-ALBC_API Model::Model(AlbcException **e_ptr) noexcept
+ALBC_API_MEMBER Model::Model(AlbcException **e_ptr) noexcept
 {
     try
     {
@@ -381,7 +379,7 @@ ALBC_API Model::Model(AlbcException **e_ptr) noexcept
     ALBC_API_CATCH_AND_TRANSLATE_EXCEPTION(e_ptr, "calling API")
 }
 
-ALBC_API Character::Character(const char *identifier) noexcept
+ALBC_API_MEMBER Character::Character(const char *identifier) noexcept
 {
     try
     {
@@ -393,7 +391,7 @@ ALBC_API Character::Character(const char *identifier) noexcept
     }
     ALBC_API_CATCH_AND_TRANSLATE_EXCEPTION(nullptr, "calling API")
 }
-ALBC_API Character::~Character() noexcept
+ALBC_API_MEMBER Character::~Character() noexcept
 {
     try
     {
@@ -401,7 +399,7 @@ ALBC_API Character::~Character() noexcept
     }
     ALBC_API_CATCH_AND_TRANSLATE_EXCEPTION(nullptr, "calling API")
 }
-ALBC_API Character *Character::FromGameDataId(const char *id) noexcept
+ALBC_API_MEMBER Character *Character::FromGameDataId(const char *id) noexcept
 {
     try
     {
@@ -412,7 +410,7 @@ ALBC_API Character *Character::FromGameDataId(const char *id) noexcept
     ALBC_API_CATCH_AND_TRANSLATE_EXCEPTION(nullptr, "calling API")
     return nullptr;
 }
-ALBC_API Character *Character::FromName(const char *name) noexcept
+ALBC_API_MEMBER Character *Character::FromName(const char *name) noexcept
 {
     try
     {
@@ -423,7 +421,7 @@ ALBC_API Character *Character::FromName(const char *name) noexcept
     ALBC_API_CATCH_AND_TRANSLATE_EXCEPTION(nullptr, "calling API")
     return nullptr;
 }
-ALBC_API void Character::SetLevel(int phase, int level, AlbcException **e_ptr) noexcept
+ALBC_API_MEMBER void Character::SetLevel(int phase, int level, AlbcException **e_ptr) noexcept
 {
     try
     {
@@ -431,7 +429,7 @@ ALBC_API void Character::SetLevel(int phase, int level, AlbcException **e_ptr) n
     }
     ALBC_API_CATCH_AND_TRANSLATE_EXCEPTION(e_ptr, "calling API")
 }
-ALBC_API void Character::AddSkillByName(const char *name, AlbcException **e_ptr) noexcept
+ALBC_API_MEMBER void Character::AddSkillByName(const char *name, AlbcException **e_ptr) noexcept
 {
     try
     {
@@ -439,7 +437,7 @@ ALBC_API void Character::AddSkillByName(const char *name, AlbcException **e_ptr)
     }
     ALBC_API_CATCH_AND_TRANSLATE_EXCEPTION(e_ptr, "calling API")
 }
-ALBC_API void Character::AddSkillByGameDataId(const char *id, AlbcException **e_ptr) noexcept
+ALBC_API_MEMBER void Character::AddSkillByGameDataId(const char *id, AlbcException **e_ptr) noexcept
 {
     try
     {
@@ -447,7 +445,15 @@ ALBC_API void Character::AddSkillByGameDataId(const char *id, AlbcException **e_
     }
     ALBC_API_CATCH_AND_TRANSLATE_EXCEPTION(e_ptr, "calling API")
 }
-ALBC_API bool Character::Prepare(AlbcException **e_ptr) noexcept
+ALBC_API_MEMBER void Character::AddSkillByIcon(const char *icon, AlbcException **e_ptr) noexcept
+{
+    try
+    {
+        impl_->AddSkillByIcon(icon);
+    }
+    ALBC_API_CATCH_AND_TRANSLATE_EXCEPTION(e_ptr, "calling API")
+}
+ALBC_API_MEMBER bool Character::Prepare(AlbcException **e_ptr) noexcept
 {
     try
     {
@@ -456,7 +462,7 @@ ALBC_API bool Character::Prepare(AlbcException **e_ptr) noexcept
     ALBC_API_CATCH_AND_TRANSLATE_EXCEPTION(e_ptr, "calling API")
     return false;
 }
-ALBC_API String Character::GetIdentifier(AlbcException **e_ptr) const noexcept
+ALBC_API_MEMBER String Character::GetIdentifier(AlbcException **e_ptr) const noexcept
 {
     try
     {
@@ -465,7 +471,7 @@ ALBC_API String Character::GetIdentifier(AlbcException **e_ptr) const noexcept
     ALBC_API_CATCH_AND_TRANSLATE_EXCEPTION(e_ptr, "calling API")
     return String{};
 }
-ALBC_API void Character::SetMorale(double value, AlbcException **e_ptr) noexcept
+ALBC_API_MEMBER void Character::SetMorale(double value, AlbcException **e_ptr) noexcept
 {
     try
     {
@@ -474,7 +480,7 @@ ALBC_API void Character::SetMorale(double value, AlbcException **e_ptr) noexcept
     ALBC_API_CATCH_AND_TRANSLATE_EXCEPTION(e_ptr, "calling API")
 }
 
-ALBC_API Room::Room(const char *identifier, AlbcRoomType type) noexcept
+ALBC_API_MEMBER Room::Room(const char *identifier, AlbcRoomType type) noexcept
 {
     try
     {
@@ -487,7 +493,7 @@ ALBC_API Room::Room(const char *identifier, AlbcRoomType type) noexcept
     }
     ALBC_API_CATCH_AND_TRANSLATE_EXCEPTION(nullptr, "calling API")
 }
-ALBC_API Room::~Room() noexcept
+ALBC_API_MEMBER Room::~Room() noexcept
 {
     try
     {
@@ -495,7 +501,7 @@ ALBC_API Room::~Room() noexcept
     }
     ALBC_API_CATCH_AND_TRANSLATE_EXCEPTION(nullptr, "calling API")
 }
-ALBC_API void Room::SetDblParam(AlbcRoomParamType type, double value, AlbcException **e_ptr) noexcept
+ALBC_API_MEMBER void Room::SetDblParam(AlbcRoomParamType type, double value, AlbcException **e_ptr) noexcept
 {
     try
     {
@@ -508,7 +514,7 @@ ALBC_API void Room::SetDblParam(AlbcRoomParamType type, double value, AlbcExcept
     }
     ALBC_API_CATCH_AND_TRANSLATE_EXCEPTION(e_ptr, "calling API")
 }
-ALBC_API bool Room::Prepare(AlbcException **e_ptr) noexcept
+ALBC_API_MEMBER bool Room::Prepare(AlbcException **e_ptr) noexcept
 {
     try
     {
@@ -517,7 +523,7 @@ ALBC_API bool Room::Prepare(AlbcException **e_ptr) noexcept
     ALBC_API_CATCH_AND_TRANSLATE_EXCEPTION(e_ptr, "calling API")
     return false;
 }
-ALBC_API String Room::GetIdentifier(AlbcException **e_ptr) const noexcept
+ALBC_API_MEMBER String Room::GetIdentifier(AlbcException **e_ptr) const noexcept
 {
     try
     {
@@ -562,7 +568,7 @@ ALBC_API String RunWithJsonParams(const char *json, AlbcException **e_ptr)
             {
                 algorithm::iface::CustomRoom room;
                 room.SetType(room_data.type);
-                switch (room_data.type)
+                switch (room_data.type)  // NOLINT(clang-diagnostic-switch-enum)
                 {
                 case data::building::RoomType::MANUFACTURE:
                     room.room_attributes.prod_type = room_data.prod_type;
@@ -583,8 +589,7 @@ ALBC_API String RunWithJsonParams(const char *json, AlbcException **e_ptr)
 
                 room.SetIdentifier(ident);
                 room.SetMaxSlotCnt(room_data.slot_count);
-                auto opt_room_data = room.GenerateRoomData();
-                if (opt_room_data)
+                if (auto opt_room_data = room.GenerateRoomData())
                     input.rooms.emplace_back(std::move(*opt_room_data));
                 else
                     throw std::runtime_error("failed to generate room data");
@@ -616,9 +621,9 @@ ALBC_API String RunWithJsonParams(const char *json, AlbcException **e_ptr)
                     throw std::invalid_argument(std::string("invalid argument: ") +
                                                 "phase: " + std::to_string(char_data.phase) +
                                                 ", level: " + std::to_string(char_data.level));
-                else
-                    if (char_data.phase >= 0 && char_data.level >= 0)
-                        character.SetLevelCond((data::EvolvePhase)char_data.phase, char_data.level);
+
+                if (char_data.phase >= 0 && char_data.level >= 0)
+                    character.SetLevelCond((data::EvolvePhase)char_data.phase, char_data.level);
 
                 for (const auto& skill_ident: char_data.skills)
                 {
@@ -626,13 +631,14 @@ ALBC_API String RunWithJsonParams(const char *json, AlbcException **e_ptr)
                         character.AddSkillById(skill_ident);
                     else if (i_slt->HasName(skill_ident))
                         character.AddSkillByName(skill_ident);
+                    else if (i_slt->HasIcon(skill_ident))
+                        character.AddSkillByIcon(skill_ident);
                     else
                         LOG_W("Unrecognized skill: ", skill_ident, " of character: ", ident);
                 }
 
                 character.SetMorale(char_data.morale);
-                auto opt_char_data = character.GenerateCharacterData();
-                if (opt_char_data)
+                if (auto opt_char_data = character.GenerateCharacterData())
                     input.characters.emplace_back(std::move(*opt_char_data));
                 else
                     throw std::runtime_error("failed to generate character data");
@@ -649,7 +655,7 @@ ALBC_API String RunWithJsonParams(const char *json, AlbcException **e_ptr)
 
         const auto i_runner = api::di::Resolve<algorithm::iface::IRunner>();
         algorithm::AlgorithmResult result;
-        AlbcSolverParameters solver_params;
+        AlbcSolverParameters solver_params {};
         solver_params.solve_time_limit = in_params.solve_time_limit;
         solver_params.model_time_limit = in_params.model_time_limit;
         solver_params.gen_all_solution_details = in_params.gen_sol_details;

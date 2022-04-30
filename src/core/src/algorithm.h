@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include "albc/calbc.h"
 #include "algorithm_params.h"

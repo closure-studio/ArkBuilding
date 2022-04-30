@@ -17,7 +17,7 @@
 #define SCOPE_TIMER_WITH_TRACE(name) albc::util::ScopeTimer(                 \
     std::string("ALBC|").append(albc::util::GetReadableTime()).append("|").append(albc::util::get_current_thread_id())     \
     .append("|TIMER|").append(__FILENAME__).append(":")                                        \
-    .append(__FUNCTION__).append(STRINGIFY(:__LINE__|[ScopeTimer])).append((name)))
+    .append(__func__).append(STRINGIFY(:__LINE__|[ScopeTimer])).append((name)))
 
 namespace albc::util
 {

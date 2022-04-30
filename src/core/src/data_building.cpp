@@ -21,6 +21,7 @@ BuildingCharacter::BuildingCharacter(const Json::Value &json)
 BuildingBuff::BuildingBuff(const Json::Value &json)
     : buff_id(json["buffId"].asString()),
       buff_name(json["buffName"].asString()),
+      skill_icon(json["skillIcon"].asString()),
       sort_id(json["sortId"].asInt()),
       room_type(util::json_string_as_enum(json["roomType"], RoomType::NONE)),
       description(json["description"].asString())

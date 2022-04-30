@@ -5,14 +5,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#ifdef _WIN32
-#ifndef NOMINMAX
-#define NOMINMAX
-#endif
-#include <windows.h>
-#undef ERROR
-#endif
-
 #define S(x) #x
 #define S_(x) S(x)
 #define S__LINE__ S_(__LINE__)
@@ -39,10 +31,6 @@ bool call_success(AlbcException *e, const char *error_msg)
 
 void c_albc_example_main()
 {
-#ifdef _WIN32
-    SetConsoleOutputCP(CP_UTF8);
-#endif
-
     AlbcException *e = NULL;
     AlbcString *out = NULL;
 
@@ -55,7 +43,7 @@ void c_albc_example_main()
 
     ALBC_CHECK(json_run_fail, out = AlbcRunWithJsonParams(GetTestJsonInput(), &e), e);
 
-    puts(AlbcStringGetContent(out));
+    printf("%s\n", AlbcStringGetContent(out));
 
 json_run_fail:
     AlbcStringDel(out);

@@ -66,7 +66,7 @@ struct [[maybe_unused]] ICollectionVectorImpl : public ICollection<T>, public Ve
 class [[maybe_unused]] CharQueryImpl : public ICharQuery
 {
   public:
-    data::game::ISkillLookupTable::CharQueryItem item;
+    data::game::ISkillLookupTable::CharQueryEntry item;
     String name;
 
     [[nodiscard]] bool IsValid() const noexcept override;
@@ -132,6 +132,8 @@ class Character::Impl
     void AddSkillByName(const std::string &name);
 
     void AddSkillByGameDataId(const std::string &id);
+
+    void AddSkillByIcon(const std::string& icon);
 
     void SetMorale(double morale_val);
 

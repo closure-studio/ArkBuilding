@@ -1,4 +1,4 @@
-//
+﻿//
 // Created by Nonary on 2022/4/24.
 //
 
@@ -50,6 +50,14 @@ const char *GetTestJsonInput()
       ],
       "morale": 24
     },
+    "刻俄柏": {
+      "name": "刻俄柏",
+      "skills": [
+        "bskill_man_limit&cost1",
+        "bskill_man_spd_add1"
+      ],
+      "morale": 24
+    },
     "雪雉": {
       "name": "雪雉",
       "skills": [
@@ -69,14 +77,6 @@ const char *GetTestJsonInput()
       "skills": [
         "特立独行",
         "探险者"
-      ],
-      "morale": 24
-    },
-    "刻俄柏": {
-      "name": "刻俄柏",
-      "skills": [
-        "拾荒者",
-        "回收利用"
       ],
       "morale": 24
     },
@@ -111,6 +111,13 @@ const char *GetTestJsonInput()
       ],
       "morale": 24
     },
+    "杰西卡": {
+      "name": "杰西卡",
+      "skills": [
+        "标准化·β"
+      ],
+      "morale": 24
+    }
   },
   "rooms": {
     "room_1": {

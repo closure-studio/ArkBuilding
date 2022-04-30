@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #ifndef ALBC_INTERNAL_H
 #define ALBC_INTERNAL_H
 #include "albc_common.h"
@@ -21,14 +21,21 @@
 #   define ALBC_E_PTR AlbcException **e_ptr = nullptr
 #endif
 
-#define ALBC_API ALBC_MAYBE_UNUSED ALBC_EXPORT
+#ifdef ALBC_EXPORTS
+#   define ALBC_API ALBC_MAYBE_UNUSED ALBC_EXPORT
+#   define ALBC_API_CLASS ALBC_MAYBE_UNUSED ALBC_EXPORT_CLASS
+#   define ALBC_API_MEMBER ALBC_MAYBE_UNUSED ALBC_EXPORT_MEMBER
+#else
+#   define ALBC_API ALBC_MAYBE_UNUSED ALBC_IMPORT
+#   define ALBC_API_CLASS ALBC_MAYBE_UNUSED ALBC_IMPORT_CLASS
+#   define ALBC_API_MEMBER ALBC_MAYBE_UNUSED ALBC_IMPORT_MEMBER
+#endif
 
 #define ALBC_PIMPL                                                                                                     \
   public:                                                                                                              \
     class Impl;                                                                                                        \
+    Impl *impl_;                                                                                                       \
     ALBC_NODISCARD ALBC_MAYBE_UNUSED const Impl* impl() const noexcept { return impl_; }                               \
-  private:                                                                                                             \
-    Impl *impl_ = nullptr;
 
 #define ALBC_MEM_DELEGATE                                                                                              \
   public:                                                                                                              \
@@ -49,7 +56,7 @@ ALBC_API void free(void* ptr) noexcept;
 ALBC_NODISCARD ALBC_API void* realloc(void* ptr, std::size_t size) noexcept;
 
 template <typename T>
-struct FwdIterator
+class FwdIterator
 {
   public:
     explicit FwdIterator(T *ptr) noexcept : ptr(ptr)  {}
@@ -69,27 +76,29 @@ struct FwdIterator
     T* ptr;
 };
 
-struct ICollectionBase
+class ALBC_API_CLASS ICollectionBase
 {
-    ALBC_NODISCARD ALBC_API virtual int GetCount() const noexcept = 0;
-    ALBC_API virtual void ForEach(AlbcForEachCallback callback, void* user_data) const noexcept = 0;
-    ALBC_API virtual ~ICollectionBase() noexcept = default;
+  public:
+    ALBC_NODISCARD ALBC_API_MEMBER virtual int GetCount() const noexcept = 0;
+    ALBC_API_MEMBER virtual void ForEach(AlbcForEachCallback callback, void *user_data) const noexcept = 0;
+    ALBC_API_MEMBER virtual ~ICollectionBase() noexcept = default;
 
     ALBC_MEM_DELEGATE
 };
 
 template<typename T, template <class> typename TIter = FwdIterator>
-struct ICollection : public ICollectionBase
+class ALBC_API_CLASS ICollection : public ICollectionBase
 {
+  public:
     using const_iterator = TIter<const T>;
     using iterator = TIter<T>;
     using value_type = T;
 
-    ALBC_NODISCARD ALBC_API virtual const_iterator begin() const noexcept = 0;
-    ALBC_NODISCARD ALBC_API virtual const_iterator end() const noexcept = 0;
-    ALBC_NODISCARD ALBC_API virtual iterator begin() noexcept = 0;
-    ALBC_NODISCARD ALBC_API virtual iterator end() noexcept = 0;
-    ALBC_NODISCARD ALBC_API int GetCount() const noexcept override
+    ALBC_NODISCARD ALBC_API_MEMBER virtual const_iterator begin() const noexcept = 0;
+    ALBC_NODISCARD ALBC_API_MEMBER virtual const_iterator end() const noexcept = 0;
+    ALBC_NODISCARD ALBC_API_MEMBER virtual iterator begin() noexcept = 0;
+    ALBC_NODISCARD ALBC_API_MEMBER virtual iterator end() noexcept = 0;
+    ALBC_NODISCARD ALBC_API_MEMBER int GetCount() const noexcept override
     {
         int count = 0;
         for (auto it = begin(); it != end(); ++it)
@@ -109,20 +118,20 @@ struct ICollection : public ICollectionBase
  * 该字符串类是对STL字符串的简单封装，提供了一些常用的操作，为了避免ABI问题。
  * API规范中，字符串入参统一使用UTF8 const char*，出参统一使用UTF8 String。
  */
-struct String
+class ALBC_API_CLASS String
 {
   public:
-    ALBC_API explicit String() noexcept;
-    ALBC_API explicit String(const char *str) noexcept;
-    ALBC_API String(const String &str) noexcept;
-    ALBC_API String(String &&str) noexcept;
-    ALBC_API ~String() noexcept;
-
-    ALBC_API String& operator=(const char *str) noexcept;
-    ALBC_API String& operator=(const String &str) noexcept;
-    ALBC_API String& operator=(String &&str) noexcept;
-    ALBC_NODISCARD ALBC_API const char* c_str() const noexcept;
-    ALBC_NODISCARD ALBC_API size_t size() const noexcept;
+    ALBC_API_MEMBER explicit String() noexcept;
+    ALBC_API_MEMBER explicit String(const char *str) noexcept;
+    ALBC_API_MEMBER String(const String &str) noexcept;
+    ALBC_API_MEMBER String(String &&str) noexcept;
+    ALBC_API_MEMBER ~String() noexcept;
+    
+    ALBC_API_MEMBER String &operator=(const char *str) noexcept;
+    ALBC_API_MEMBER String &operator=(const String &str) noexcept;
+    ALBC_API_MEMBER String &operator=(String &&str) noexcept;
+    ALBC_NODISCARD ALBC_API_MEMBER const char *c_str() const noexcept;
+    ALBC_NODISCARD ALBC_API_MEMBER std::size_t size() const noexcept;
 
     ALBC_PIMPL
     ALBC_MEM_DELEGATE
