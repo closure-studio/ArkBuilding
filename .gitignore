@@ -116,3 +116,5 @@ test/test_runner
 problem.lp
 solution_details.txt
 CMakeSettings.json
+cpp.hint
+Folder.DotSettings.user

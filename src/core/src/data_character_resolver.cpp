@@ -176,7 +176,7 @@ bool CharacterResolver::ResolveCharacter(const CharResolveParams &params, CharRe
         LOG_W("Defaulting to initial character state: ", params.identifier_);
     }
 
-    bool ok = !tmp_result.skill_ids.empty() || !tmp_result.char_id.empty() && sufficient_level_cond;
+    bool ok = !tmp_result.skill_ids.empty() || (!tmp_result.char_id.empty() && sufficient_level_cond);
     if (ok)
     {
         result = std::move(tmp_result);
