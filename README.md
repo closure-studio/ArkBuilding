@@ -292,21 +292,27 @@ JSON 中的所有数据约定[同上](#使用)
 ### 目前测试过的环境：
 * Windows GCC 11.2.0 x86_64-w64-mingw32
 * Linux GCC 10.2.1, x86_64 / ARM64
-* Windows MSVC 17.1 x86_64
+* Windows MSVC 17.1.6 x86_64
 
 如果你遇到了构建/集成的问题，欢迎提出。
 
 1. 环境
    * GCC 9.0+ / MSVC 14.1+
+   * CMake
 
-2. CMake
+2. 初始化 Submodule
+   ```console
+   ~/ArkBuilding# git submodule update --init --recursive
+   ```
+
+4. CMake
     ```console
     ~/ArkBuilding# mkdir build
     ~/ArkBuilding# cd build/
     ~/ArkBuilding/build# cmake ..
     ```
    
-3. 编译 CMake 中的某个 Target
+5. 编译 CMake 中的某个 Target
    * "albccli" : 命令行程序
    * "albc" : 动态库
    * "albc_static" : 静态库

@@ -2,3 +2,7 @@
 	path = src/external/backward-cpp
 	url = https://github.com/bombela/backward-cpp.git
     ignore = dirty
+[submodule "src/external/coin"]
+	path = src/external/coin
+	url = https://github.com/wg138940/coin.git
+	ignore = dirty

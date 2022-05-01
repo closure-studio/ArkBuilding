@@ -29,17 +29,16 @@ bool call_success(AlbcException *e, const char *error_msg)
     return true;
 }
 
-void c_albc_example_main()
+void c_albc_example_main(const char* building_data_path, const char *character_table_path, const char *char_meta_table_path)
 {
     AlbcException *e = NULL;
     AlbcString *out = NULL;
 
     AlbcDoLog(ALBC_LOG_LEVEL_INFO, "Starting ALBC C example", NULL);
     AlbcSetLogLevel(ALBC_LOG_LEVEL_ALL, NULL);
-
-    ALBC_CHECK(assets_fail, AlbcLoadGameDataFile(ALBC_GAME_DATA_DB_CHARACTER_TABLE, "../test/character_table.json", &e), e);
-    ALBC_CHECK(assets_fail, AlbcLoadGameDataFile(ALBC_GAME_DATA_DB_BUILDING_DATA, "../test/building_data.json", &e), e);
-    ALBC_CHECK(assets_fail, AlbcLoadGameDataFile(ALBC_GAME_DATA_DB_CHAR_META_TABLE, "../test/char_meta_table.json", &e), e);
+    ALBC_CHECK(assets_fail, AlbcLoadGameDataFile(ALBC_GAME_DATA_DB_BUILDING_DATA, building_data_path, &e), e);
+    ALBC_CHECK(assets_fail, AlbcLoadGameDataFile(ALBC_GAME_DATA_DB_CHARACTER_TABLE, character_table_path, &e), e);
+    ALBC_CHECK(assets_fail, AlbcLoadGameDataFile(ALBC_GAME_DATA_DB_CHAR_META_TABLE, char_meta_table_path, &e), e);
 
     ALBC_CHECK(json_run_fail, out = AlbcRunWithJsonParams(GetTestJsonInput(), &e), e);
 
