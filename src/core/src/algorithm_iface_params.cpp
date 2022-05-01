@@ -215,7 +215,7 @@ AlgorithmParams::AlgorithmParams(const CustomPackedInput &custom_input,
                 char_ids.emplace_back(inst_id_counter, "CUSTOM_CHAR_" + std::to_string(inst_id_counter));
 
             auto op = std::make_unique<model::OperatorModel>(inst_id_counter, custom_char.resolved_char_id,
-                                                             3600. * custom_char.morale);
+                                                             static_cast<UInt32>(3600. * custom_char.morale));
             op->identifier = custom_char.identifier;
             op->sp_char_group = custom_char.sp_char_group;
             operators_.emplace_back(std::move(op));
