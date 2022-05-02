@@ -33,10 +33,13 @@ bool ISkillLookupTable::CharQueryEntry::HasContent() const
 }
 std::string ISkillLookupTable::CharQueryEntry::to_string() const
 {
+    if (!HasContent())
+        return "Empty";
+
     char buf[256];
     char *p = buf;
     size_t s = sizeof(buf);
-    util::append_snprintf(p, s, "id:%24s, phase:%s, level:%2d", id.c_str(), util::enum_to_string(phase).data(), level);
+    util::append_snprintf(p, s, "ID:%-24s, Phase:%s, Level:%2d", id.c_str(), util::enum_to_string(phase).data(), level);
     return buf;
 }
 bool SkillLookupTable::HasId(const std::string &id) const
@@ -212,7 +215,7 @@ void SkillLookupTable::InsertQueryItem(
 {
     InsertMultiBuffLookupItem(target, entries, query, buff_keys, char_key);
     for (const auto &id : buff_keys)
-        InsertSingleBuffLookupItem(target, entries, query, id, char_key);
+        InsertSingleBuffLookupItem(target, entries, query, id, true, char_key);
 }
 SkillLookupTable::CompositeHashKey SkillLookupTable::HashStringCollection(const Vector<std::string> &list)
 {
@@ -258,19 +261,23 @@ void SkillLookupTable::InsertMultiBuffLookupItem(
         throw std::invalid_argument("InsertMultiBuffLookupItem(): char_id is empty");
 
     CompositeHashKey key = HashMultiBuff(buff_keys, char_key);
-    if (target[key].TryAssignOrOverwrite(query))
+    if (target[key].TryUpdateWithTighterBound(query))
         entries[key] = {char_key, buff_keys};
 }
 void SkillLookupTable::InsertSingleBuffLookupItem(
     std::unordered_map<CompositeHashKey, MapEntry> &target,
-    MapEntries &entries, const CharQueryEntry &query, const std::string &buff_key, const std::string &char_key)
+    MapEntries &entries, const CharQueryEntry &query, const std::string &buff_key, bool is_lax_bound, const std::string &char_key)
 {
     if (!query.HasContent())
         throw std::invalid_argument("InsertSingleBuffLookupItem(): char_id is empty");
 
     CompositeHashKey key = HashSingleBuff(buff_key, char_key);
-    if (target[key].TryAssignOrOverwrite(query))
+    if (
+        (!is_lax_bound && target[key].TryUpdateWithTighterBound(query))
+        || (is_lax_bound && target[key].TryUpdateWithLaxerBound(query)))
+    {
         entries[key] = {char_key, {buff_key}};
+    }
 }
 void SkillLookupTable::CleanupBuffLookupMap(
     std::unordered_map<CompositeHashKey, MapEntry> &target, MapEntries &entries, UInt32 &valid_count)
@@ -292,14 +299,28 @@ bool SkillLookupTable::MapEntry::IsValid() const
 {
     return has_content && is_valid;
 }
-bool SkillLookupTable::MapEntry::TryAssignOrOverwrite(const CharQueryEntry &char_query_val)
+bool SkillLookupTable::MapEntry::TryUpdateWithTighterBound(const CharQueryEntry &char_query_val)
 {
+    // 此处尝试赋值或覆盖，且将会修改已有条目的is_valid属性，当条目失效时返回false
     if (!char_query_val.HasContent())
         return false;
-
-    // 当不能被覆写（既与目标查询不兼容）时，认为该条目存在冲突，不再表明某个独立的角色查询
+    
     is_valid = is_valid && (!has_content || char_query.CanBeOverwritten(char_query_val));
     if (!is_valid)
+        return false;
+
+    has_content = true;
+    char_query = char_query_val;
+    return true;
+}
+
+bool SkillLookupTable::MapEntry::TryUpdateWithLaxerBound(const CharQueryEntry &char_query_val)
+{
+    // 此处只会尝试对没有内容的条目赋值，不会覆写或更改已有条目的内容，当未发生更新时返回false
+    if (!char_query_val.HasContent())
+        return false;
+    
+    if (has_content)
         return false;
 
     has_content = true;

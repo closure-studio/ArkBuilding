@@ -93,7 +93,8 @@ class SkillLookupTable : public ISkillLookupTable
 
         [[nodiscard]] bool IsValid() const;
 
-        bool TryAssignOrOverwrite(const CharQueryEntry &char_query_val);
+        bool TryUpdateWithTighterBound(const CharQueryEntry &char_query_val);
+        bool TryUpdateWithLaxerBound(const CharQueryEntry &char_query_val);
     };
 
     using BuffToCharMap = std::unordered_map<CompositeHashKey, MapEntry>;
@@ -125,7 +126,7 @@ class SkillLookupTable : public ISkillLookupTable
                                           const CharQueryEntry &query, const Vector<std::string> &buff_keys, const std::string &char_key = {});
 
     static void InsertSingleBuffLookupItem(BuffToCharMap &target, MapEntries &entries,
-                                           const CharQueryEntry &query, const std::string &buff_key, const std::string &char_key = {});
+                                           const CharQueryEntry &query, const std::string &buff_key, bool is_lax_bound, const std::string &char_key = {});
 
     static void CleanupBuffLookupMap(BuffToCharMap &target, MapEntries &entries, UInt32 &valid_count);
 };
