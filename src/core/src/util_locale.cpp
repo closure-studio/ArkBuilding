@@ -12,7 +12,6 @@
 namespace albc::util
 {
 
-// iconv wrapper
 std:: string ToTargetLocale(const std::string_view &src, const char *from_code, const char *to_code)
 {
     if (!from_code || !to_code)

@@ -197,7 +197,7 @@ JSON 中的所有数据约定[同上](#使用)
 |--------------------------------|------------|---------|-------------------------------|
 | `modelTimeLimit`               | `double`   | `57600` | 模型时间限制，代表计算持续的时间。             |
 | `solveTimeLimit`               | `double`   | `60`    | Cbc 求解器的超时。                   |
-| `chars`                        | `object`   | -       | 键供在输出中区分使用，与代入模型计算的干员名称/ID不同。 |
+| `chars`                        | `object`   | -       | 键供在输出中区分使用。               |
 | `chars[identifier].name`       | `string`   | -       | 干员名称                          |
 | `chars[identifier].id`         | `string`   | -       | 干员ID                          |
 | `chars[identifier].phase`      | `int`      | -       | `{0, 1, 2}` 干员精英阶段            |
