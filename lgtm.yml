@@ -1,0 +1,8 @@
+extraction:
+  cpp:
+    prepare:
+      packages: "gcc-10-cross-base"
+    configure:
+      command: "cmake . -B build -DCMAKE_CXX_COMPILER=g++-10 -DCMAKE_BUILD_TYPE=Release"
+    index:
+      build_command: "cmake --build build --target albc albcexample albc_static -j8"
