@@ -55,6 +55,53 @@ model::buff::GlobalAttributeFields GlobalAttributeFactory(const data::player::Pl
 
     return attr;
 }
+
+model::buff::GlobalAttributeFields GlobalAttributeFactory(const CustomPackedInput &input)
+{
+    using namespace model::buff;
+    using namespace util;
+
+    UInt32 power_plant_cnt = 0;
+    UInt32 trading_post_cnt = 0;
+    UInt32 gold_prod_line_cnt = 0;
+    UInt32 dorm_sum_level = 0;
+
+    for (const auto &room : input.rooms)
+    {
+        switch (room.type)
+        {
+        case data::building::RoomType::POWER:
+            power_plant_cnt++;
+            break;
+
+        case data::building::RoomType::DORMITORY:
+            dorm_sum_level += room.level;
+            break;
+
+        case data::building::RoomType::TRADING:
+            trading_post_cnt++;
+            break;
+
+        case data::building::RoomType::MANUFACTURE:
+            if (room.room_attributes.prod_type == ProdType::GOLD)
+                gold_prod_line_cnt++;
+            break;
+
+        default:
+            LOG_W("Unknown room type: %d", enum_to_string(room.type));
+            break;
+        }
+    }
+
+    GlobalAttributeFields attr;
+    attr[GlobalAttributeType::POWER_PLANT_CNT] = power_plant_cnt;
+    attr[GlobalAttributeType::TRADING_POST_CNT] = trading_post_cnt;
+    attr[GlobalAttributeType::GOLD_PROD_LINE_CNT] = gold_prod_line_cnt;
+    attr[GlobalAttributeType::DORM_SUM_LEVEL] = dorm_sum_level;
+
+    return attr;
+}
+
 std::unique_ptr<model::buff::RoomModel> RoomFactory(const std::string &id,
                                                     const data::player::PlayerBuildingManufacture &manufacture_room,
                                                     int level)
@@ -253,10 +300,11 @@ AlgorithmParams::AlgorithmParams(const CustomPackedInput &custom_input,
         // TODO:如果没有buff，尝试代入羁绊/联动体系
     }
 
+    const auto global_attr = GlobalAttributeFactory(custom_input);
     for (const auto &custom_room : custom_input.rooms)
     {
         auto room = RoomFactory(custom_room);
-        room->global_attributes = custom_input.global_data.global_attributes;
+        room->global_attributes = global_attr;
         AddRoom(custom_room.type, std::move(room));
     }
 }

@@ -30,21 +30,26 @@ JsonInRoomStruct::JsonInRoomStruct(const Json::Value &val)
                    val.get(kType, "").asString(),
                    JsonRoomType::NONE)),
       slot_count(val.get(kSlotCount, 0).asInt()),
-      attributes(val.get(kAttributes, Json::Value(Json::objectValue)))
+      attributes(val.get(kAttributes, Json::Value(Json::objectValue))),
+      level(val.get(kLevel, 1).asInt())
 {
+    const auto shared_prod_type_str = val.get(kSharedProdType, "").asString();
     switch (type)
     {
     case data::building::RoomType::MANUFACTURE:
         prod_type =
-            (model::buff::ProdType) util::parse_enum_string(
-                val.get(kSharedProdType, "").asString(),
+            (model::buff::ProdType) util::parse_enum_string(shared_prod_type_str,
                 JsonManufactureProdType::NONE);
         break;
+
     case data::building::RoomType::TRADING:
         order_type =
-            (model::buff::OrderType) util::parse_enum_string(
-                val.get(kSharedProdType, "").asString(),
+            (model::buff::OrderType) util::parse_enum_string(shared_prod_type_str,
                 JsonTradingOrderType::NONE);
+        break;
+
+    case data::building::RoomType::POWER:
+    case data::building::RoomType::DORMITORY:
         break;
 
     default:

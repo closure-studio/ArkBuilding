@@ -53,7 +53,7 @@ namespace albc::util
             // print name and duration
             double sec = FloatingSeconds(PerfClock::now() - m_start).count();
             SingletonLogger::instance()->Log(
-                log_level_, std::move(m_name.append(": Done in ").append(std::to_string(sec)).append("s")));
+                log_level_, std::move(m_name.append(": Done in ").append(std::to_string(sec)).append("s\n")));
         }
 
     private:

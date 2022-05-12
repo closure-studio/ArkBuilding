@@ -24,6 +24,8 @@ enum class JsonRoomType
     NONE = (int)data::building::RoomType::NONE,
     MANUFACTURE = (int)data::building::RoomType::MANUFACTURE,
     TRADING = (int)data::building::RoomType::TRADING,
+    POWER = (int)data::building::RoomType::POWER,
+    DORMITORY = (int)data::building::RoomType::DORMITORY
 };
 
 enum class JsonManufactureProdType
@@ -69,11 +71,15 @@ struct JsonInRoomStruct
     data::building::RoomType type;          ALBC_API_JSON_KEY(kType, "type");
 
                                             ALBC_API_JSON_KEY(kSharedProdType, "prodType");
-    model::buff::ProdType prod_type;        // shared prod type, does not exist in json
-    model::buff::OrderType order_type;      // shared order type, does not exist in json
+    // room type specific field, does not exist directly in the json
+    model::buff::ProdType prod_type = model::buff::ProdType::UNDEFINED;
+    // room type specific field, does not exist directly in the json
+    model::buff::OrderType order_type = model::buff::OrderType::UNDEFINED;
 
     int slot_count;                         ALBC_API_JSON_KEY(kSlotCount, "slots");
     JsonInRoomAttributeFields attributes;   ALBC_API_JSON_KEY(kAttributes, "attributes");
+
+    int level;                              ALBC_API_JSON_KEY(kLevel, "level");
 
     explicit JsonInRoomStruct(const Json::Value& val);
 };

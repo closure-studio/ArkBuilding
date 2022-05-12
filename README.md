@@ -66,8 +66,8 @@
 
 // TODO: 模型
 
-## 目前局限/问题
-* 目前的问题模型里只考虑最大化一定时间内产能，不考虑其他因素。
+## 目前局限/问题/TODO
+* ***目前的模型只计算了一次换班中产出房间（制造站、贸易站）的产能最大化，将在引入多班次换班、心情回复因素和联动体系时进一步完善。***
 * 目前只进行了初步的建模 + 求解的实现。
 * 欢迎提出 Issue 或 Pull Request 来改进。
 
@@ -174,47 +174,45 @@ JSON 中的所有数据约定[同上](#使用)
       "attributes": {
       }
     },
-    "room_5": {
-      "type": "MANUFACTURE",
-      "prodType": "RECORD",
-      "slots": 3,
-      "attributes": {
-      }
+    // 发电站
+    "power_1": {
+      "type": "POWER"
     },
-    "room_6": {
-      "type": "MANUFACTURE",
-      "prodType": "RECORD",
-      "slots": 3,
-      "attributes": {
-      }
+    // 宿舍
+    "dorm_1": {
+      "type": "DORMITORY",
+      "level": 5
     }
   }
 }
 ```
 
 ##### 参数说明
-| 参数                             | 参数类型       | 缺省值     | 参数说明                          |
-|--------------------------------|------------|---------|-------------------------------|
-| `modelTimeLimit`               | `double`   | `57600` | 模型时间限制，代表计算持续的时间。             |
-| `solveTimeLimit`               | `double`   | `60`    | Cbc 求解器的超时。                   |
-| `chars`                        | `object`   | -       | 键供在输出中区分使用。               |
-| `chars[identifier].name`       | `string`   | -       | 干员名称                          |
-| `chars[identifier].id`         | `string`   | -       | 干员ID                          |
-| `chars[identifier].phase`      | `int`      | -       | `{0, 1, 2}` 干员精英阶段            |
-| `chars[identifier].level`      | `int`      | -       | `[0, 90]` 干员等级                |
-| `chars[identifier].morale`     | `double`   | `24`    | `(0, 24]` 干员心情值               |
-| `chars[identifier].skills`     | `string[]` | -       | 干员技能名称/ID列表或图标ID列表            |
-| `rooms`                        | `object`   | -       | 键供在输出中区分使用。                   |
-| `rooms[identifier].type`       | `string`   | -       | 房间类型，见下述表格                    |
-| `rooms[identifier].prodType`   | `string`   | -       | 产品类型，见下述表格。                   |
-| `rooms[identifier].slots`      | `int`      | -       | 房间槽位数                         |
-| `rooms[identifier].attributes` | `object`   | -       | 房间属性，见下述表格                    |
+| 参数                             | 参数类型       | 缺省值     | 参数说明                 |
+|--------------------------------|------------|---------|----------------------|
+| `modelTimeLimit`               | `double`   | `57600` | 模型时间限制，代表计算持续的时间。    |
+| `solveTimeLimit`               | `double`   | `60`    | Cbc 求解器的超时。          |
+| `chars`                        | `object`   | -       | 键供在输出中区分使用。          |
+| `chars[identifier].name`       | `string`   | -       | 干员名称                 |
+| `chars[identifier].id`         | `string`   | -       | 干员ID                 |
+| `chars[identifier].phase`      | `int`      | -       | `{0, 1, 2}` 干员精英阶段   |
+| `chars[identifier].level`      | `int`      | -       | `[0, 90]` 干员等级       |
+| `chars[identifier].morale`     | `double`   | `24`    | `(0, 24]` 干员心情值      |
+| `chars[identifier].skills`     | `string[]` | -       | 干员技能名称/ID列表或图标ID列表   |
+| `rooms`                        | `object`   | -       | 键供在输出中区分使用。          |
+| `rooms[identifier].type`       | `string`   | -       | 房间类型，见下述表格           |
+| `rooms[identifier].prodType`   | `string`   | -       | 产品类型，只有产出房间需要，见下述表格。 |
+| `rooms[identifier].slots`      | `int`      | -       | 房间槽位数。只有制造站、贸易站需要。   |
+| `rooms[identifier].level`      | `int`      | `1`     | 房间等级。目前只有宿舍需要。       |
+| `rooms[identifier].attributes` | `object`   | 见下述表格   | 房间属性。见下述表格。          |
 
 ##### 房间类型说明
 | 房间类型 | 名称            | 产品类型                                        |
 |------|---------------|---------------------------------------------|
 | 制造站  | `MANUFACTURE` | `{GOLD, RECORD, SHARD, CHIP}` 赤金，录像，源石碎片，芯片 |
 | 贸易站  | `TRADING`     | `{GOLD, SHARD}` 赤金，合成玉                      |
+| 发电站  | `POWER`       | 无                                           |
+| 宿舍   | `DORMITORY`   | 无                                           |
 
 ##### 房间属性说明
 | 房间属性     | 名称             | 类型       | 缺省值              | 说明                                   |

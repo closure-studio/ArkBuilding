@@ -27,6 +27,7 @@ struct CustomRoomData
     std::string identifier;
     data::building::RoomType type = data::building::RoomType::NONE;
     int max_slot_cnt = 0;
+    int level = 1;
     model::buff::RoomAttributeFields room_attributes;
 };
 
@@ -40,7 +41,6 @@ class CustomPackedInput
   public:
     Vector<CustomCharacterData> characters;
     Vector<CustomRoomData> rooms;
-    CustomGlobalData global_data;
 };
 
 class CustomCharacter
@@ -134,6 +134,7 @@ class CustomRoom
 {
     data::building::RoomType type_ = data::building::RoomType::NONE;
     int max_slot_cnt_ = 0;
+    int level_ = 1;
     std::string identifier_;
 
   public:
@@ -150,6 +151,11 @@ class CustomRoom
         max_slot_cnt_ = max_slot_cnt;
     }
 
+    void SetLevel(int level)
+    {
+        level_ = level;
+    }
+
     void SetIdentifier(const std::string &identifier)
     {
         identifier_ = identifier;
@@ -161,6 +167,7 @@ class CustomRoom
         data.identifier = identifier_;
         data.type = type_;
         data.max_slot_cnt = max_slot_cnt_;
+        data.level = level_;
         data.room_attributes = room_attributes;
         return data;
     }

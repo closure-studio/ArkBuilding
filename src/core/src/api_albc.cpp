@@ -288,7 +288,8 @@ ALBC_API_MEMBER Model *Model::FromFile(const char *player_data_path, AlbcExcepti
         if (e_ptr && *e_ptr)
             return nullptr;
 
-        model->impl_ = Impl::CreateFromFile(player_data_path);
+        if (model)
+            model->impl_ = Impl::CreateFromFile(player_data_path);
         return model;
     }
     ALBC_API_CATCH_AND_TRANSLATE_EXCEPTION(e_ptr, "calling API")
@@ -302,7 +303,8 @@ ALBC_API_MEMBER Model *Model::FromJson(const char *player_data_json, AlbcExcepti
         if (e_ptr && *e_ptr)
             return nullptr;
 
-        model->impl_ = Impl::CreateFromJson(player_data_json);
+        if (model)
+            model->impl_ = Impl::CreateFromJson(player_data_json);
         return model;
     }
     ALBC_API_CATCH_AND_TRANSLATE_EXCEPTION(e_ptr, "calling API")
@@ -404,7 +406,8 @@ ALBC_API_MEMBER Character *Character::FromGameDataId(const char *id) noexcept
     try
     {
         auto character = new (std::nothrow) Character(id);
-        character->impl_->AssignGameDataId(id);
+        if (character)
+            character->impl_->AssignGameDataId(id);
         return character;
     }
     ALBC_API_CATCH_AND_TRANSLATE_EXCEPTION(nullptr, "calling API")
@@ -415,7 +418,8 @@ ALBC_API_MEMBER Character *Character::FromName(const char *name) noexcept
     try
     {
         auto character = new (std::nothrow) Character(name);
-        character->impl_->AssignName(name);
+        if (character)
+            character->impl_->AssignName(name);
         return character;
     }
     ALBC_API_CATCH_AND_TRANSLATE_EXCEPTION(nullptr, "calling API")
@@ -576,6 +580,11 @@ ALBC_API String RunWithJsonParams(const char *json, AlbcException **e_ptr)
                 case data::building::RoomType::TRADING:
                     room.room_attributes.order_type = room_data.order_type;
                     break;
+
+                case data::building::RoomType::POWER:
+                case data::building::RoomType::DORMITORY:
+                    break;
+
                 default:
                     LOG_E("Room: ", ident, " has unrecognized type: ", util::enum_to_string(room_data.type));
                     break;
@@ -588,7 +597,17 @@ ALBC_API String RunWithJsonParams(const char *json, AlbcException **e_ptr)
                 attr.base_char_cost = room_data.attributes.base_char_cost;
 
                 room.SetIdentifier(ident);
-                room.SetMaxSlotCnt(room_data.slot_count);
+                if (room_data.type != data::building::RoomType::DORMITORY)
+                {
+                    room.SetMaxSlotCnt(room_data.slot_count);
+                    room.SetLevel(std::max(room_data.level, room_data.slot_count));
+                }
+                else
+                {
+                    room.SetMaxSlotCnt(5);
+                    room.SetLevel(room_data.level);
+                }
+
                 if (auto opt_room_data = room.GenerateRoomData())
                     input.rooms.emplace_back(std::move(*opt_room_data));
                 else

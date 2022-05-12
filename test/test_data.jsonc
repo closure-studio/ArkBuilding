@@ -10,7 +10,7 @@
       "name": "德克萨斯",
       "phase": 2,
       "level": 1,
-      "morale": 24,
+      "morale": 24
     },
     // 选项2：干员+若干技能
     "Char2": {
@@ -18,21 +18,21 @@
       "skills": [
         "醉翁之意·β"
       ],
-      "morale": 24,
+      "morale": 24
     },
     // 选项3：任意标识符+若干技能，此处可以查询到干员。
     "jueSe3": {
       "skills": [
         "物流专家"
       ],
-      "morale": 24,
+      "morale": 24
     },
     // 此处无法查询到干员，但是技能仍会代入模型
     "anonymous": {
       "skills": [
         "标准化·β"
       ],
-      "morale": 24,
+      "morale": 24
     },
     "孑": {
       "name": "孑",
@@ -116,7 +116,7 @@
       "prodType": "GOLD",
       "slots": 3,
       "attributes": {
-        "prodCount": 3,
+        "prodCount": 3
       }
     },
     "room_2": {
@@ -151,6 +151,31 @@
       "slots": 3,
       "attributes": {
       }
+    },
+    "power_1": {
+      "type": "POWER"
+    },
+    "power_2": {
+      "type": "POWER"
+    },
+    "power_3": {
+      "type": "POWER"
+    },
+    "dorm_1": {
+      "type": "DORMITORY",
+      "level": 5
+    },
+    "dorm_2": {
+      "type": "DORMITORY",
+      "level": 5
+    },
+    "dorm_3": {
+      "type": "DORMITORY",
+      "level": 5
+    },
+    "dorm_4": {
+      "type": "DORMITORY",
+      "level": 5
     }
   }
 }
