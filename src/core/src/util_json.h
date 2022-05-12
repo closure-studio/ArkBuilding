@@ -176,7 +176,7 @@ static mem::PtrVector<T, TPtr> json_val_as_ptr_vector(const Json::Value &val, bo
     std::string errs;
     byte_array_buffer buffer(json_str, strlen(json_str));
     std::istream is(&buffer);
-    if (!Json::parseFromStream(builder, is, &result, &errs))
+    if (!parseFromStream(builder, is, &result, &errs))
     {
         throw std::runtime_error("Failed to parse json: " + errs);
     }

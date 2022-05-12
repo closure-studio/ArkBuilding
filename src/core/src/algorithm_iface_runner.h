@@ -10,20 +10,20 @@ namespace albc::algorithm::iface
 class IRunner
 {
 public:
-    virtual void Run(const algorithm::iface::AlgorithmParams & params, const AlbcSolverParameters& solver_params, algorithm::AlgorithmResult& out_result) const = 0;
+    virtual void Run(const AlgorithmParams & params, const AlbcSolverParameters& solver_params, AlgorithmResult & out_result) const = 0;
 };
 
 class MultiRoomIntegerProgramRunner : public IRunner
 {
 public:
     MultiRoomIntegerProgramRunner() = default;
-    void Run(const algorithm::iface::AlgorithmParams & params, const AlbcSolverParameters& solver_params, algorithm::AlgorithmResult& out_result) const override;
+    void Run(const AlgorithmParams & params, const AlbcSolverParameters& solver_params, AlgorithmResult & out_result) const override;
 };
 
 class TestRunner : public IRunner
 {
 public:
     TestRunner() = default;
-    void Run(const algorithm::iface::AlgorithmParams & params, const AlbcSolverParameters& solver_params, algorithm::AlgorithmResult& out_result) const override;
+    void Run(const AlgorithmParams & params, const AlbcSolverParameters& solver_params, AlgorithmResult & out_result) const override;
 };
 }

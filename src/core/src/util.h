@@ -32,6 +32,15 @@
 #endif
 
 #define ALBC_REQUIRES(...) typename std::enable_if_t<(__VA_ARGS__), bool> = true
+#define ALBC_DELETE_COPY(class) \
+    class(const class&) = delete; \
+    class& operator=(const class&) = delete;
+
+#define ALBC_DELETE_MOVE(class) \
+    class(class&&) = delete; \
+    class& operator=(class&&) = delete;
+
+#define ALBC_DELETE_COPY_AND_MOVE(class) ALBC_DELETE_COPY(class) ALBC_DELETE_MOVE(class)
 
 namespace albc::util
 {

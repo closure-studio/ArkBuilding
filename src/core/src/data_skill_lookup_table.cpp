@@ -208,6 +208,10 @@ SkillLookupTable::SkillLookupTable(std::shared_ptr<building::BuildingData> build
                 ": ", query_map_[key].char_query.to_string());
         }
     }
+    else
+    {
+        saved_entries_.clear();
+    }
 }
 void SkillLookupTable::InsertQueryItem(
     std::unordered_map<CompositeHashKey, MapEntry> &target,

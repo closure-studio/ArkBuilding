@@ -264,7 +264,7 @@ private:
     }
 };
 
-using SingletonLogger = util::LazySingleton<ThreadedConsoleLogger<DefaultLogPrinter>>;
+using SingletonLogger = LazySingleton<ThreadedConsoleLogger<DefaultLogPrinter>>;
 
 class Logger
 {
@@ -313,9 +313,9 @@ public:
         if (GlobalLogConfig::CanLog(m_logLevel))
         {
             SingletonLogger::instance()->Log(m_logLevel, std::move(std::string("ALBC|")
-                                                                   .append(util::GetReadableTime())
+                                                                   .append(GetReadableTime())
                                                                    .append("|")
-                                                                   .append(util::get_current_thread_id())
+                                                                   .append(get_current_thread_id())
                                                                    .append(GetLogLevelTag(m_logLevel))
                                                                    .append(m_stream.str())));
         }

@@ -222,7 +222,7 @@ ALBC_FLATTEN void CombMaker::MakePartialComb(const Vector<model::OperatorModel *
                    });
 
     Array<model::OperatorModel *, kRoomMaxOperators> current = {}; // 当前递归选中的干员
-    double max_duration = IAlgorithm::params_.model_time_limit;
+    double max_duration = params_.model_time_limit;
     bool is_all_ops = enabled_root_ops.all();
 
     UInt32 dep = 0; // 当dep==max_n-1时，得到一个组合

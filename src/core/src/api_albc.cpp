@@ -174,9 +174,9 @@ ALBC_API AlbcLogLevel ParseLogLevel(const char *level, AlbcLogLevel default_leve
     try
     {
         std::string level_str(level);
-        std::transform(level_str.begin(), level_str.end(), level_str.begin(), ::toupper);
+        std::transform(level_str.begin(), level_str.end(), level_str.begin(), toupper);
         return static_cast<AlbcLogLevel>(
-            albc::util::parse_enum_string(level_str, static_cast<albc::util::LogLevel>(default_level)));
+            parse_enum_string(level_str, static_cast<util::LogLevel>(default_level)));
     }
     ALBC_API_CATCH_AND_TRANSLATE_EXCEPTION(e_ptr, "calling API")
     return default_level;
@@ -186,9 +186,9 @@ ALBC_API AlbcTestMode ParseTestMode(const char *mode, AlbcTestMode default_mode,
     try
     {
         std::string mode_str(mode);
-        std::transform(mode_str.begin(), mode_str.end(), mode_str.begin(), ::toupper);
+        std::transform(mode_str.begin(), mode_str.end(), mode_str.begin(), toupper);
         return static_cast<AlbcTestMode>(
-            albc::util::parse_enum_string(mode_str, static_cast<albc::algorithm::iface::TestMode>(default_mode)));
+            util::parse_enum_string(mode_str, static_cast<algorithm::iface::TestMode>(default_mode)));
     }
     ALBC_API_CATCH_AND_TRANSLATE_EXCEPTION(e_ptr, "calling API")
     return default_mode;
@@ -229,12 +229,12 @@ ALBC_API void RunTest(const char *game_data_json, const char *player_data_json, 
         const auto &player_data = util::read_json_from_char_array(player_data_json);
         const auto &game_data = util::read_json_from_char_array(game_data_json);
 
-        auto log_level = static_cast<albc::util::LogLevel>(config->base_parameters.level);
+        auto log_level = static_cast<util::LogLevel>(config->base_parameters.level);
 
         LOG_I("Running test with log level: ", enum_to_string(log_level));
         {
             const auto sc = SCOPE_TIMER_WITH_TRACE("albc::algorithm::iface::RunTest");
-            albc::algorithm::iface::launch_test(player_data, game_data, *config);
+            algorithm::iface::launch_test(player_data, game_data, *config);
         }
         LOG_I("Test completed");
     }
@@ -354,7 +354,7 @@ ALBC_API_MEMBER void Model::SetDblParam(AlbcModelParamType type, double value, A
     {
         if (!magic_enum::enum_contains(type))
         {
-            throw std::invalid_argument("invalid argument: type of val: " + std::to_string(static_cast<int>(type)));
+            throw std::invalid_argument("invalid argument: type of val: " + std::to_string(type));
         }
 
         util::write_attribute(impl_->model_parameters, type, value);
@@ -383,7 +383,7 @@ ALBC_API_MEMBER Character::Character(const char *identifier) noexcept
 {
     try
     {
-        impl_ = new (std::nothrow) Character::Impl;
+        impl_ = new (std::nothrow) Impl;
         if (impl_ && identifier)
         {
             impl_->SetIdentifier(identifier);
@@ -484,7 +484,7 @@ ALBC_API_MEMBER Room::Room(const char *identifier, AlbcRoomType type) noexcept
 {
     try
     {
-        impl_ = new (std::nothrow) Room::Impl();
+        impl_ = new (std::nothrow) Impl();
         if (impl_)
         {
             impl_->SetIdentifier(identifier);
@@ -617,7 +617,7 @@ ALBC_API String RunWithJsonParams(const char *json, AlbcException **e_ptr)
                 else if (!char_data.id.empty())
                     character.SetIdResolveCond(char_data.id, data::game::CharIdentifierType::ID);
 
-                if (char_data.phase > (int)data::EvolvePhase::PHASE_2 || char_data.level > 90)
+                if (char_data.phase > 2 || char_data.level > 90)
                     throw std::invalid_argument(std::string("invalid argument: ") +
                                                 "phase: " + std::to_string(char_data.phase) +
                                                 ", level: " + std::to_string(char_data.level));

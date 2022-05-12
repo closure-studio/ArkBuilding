@@ -87,7 +87,7 @@ CALBC_API size_t AlbcStringGetLength(AlbcString *string)
  
 CALBC_API void AlbcStringCopyTo(AlbcString *string, char *buffer, size_t buffer_size)
 {
-    ::strncpy(buffer, string->impl->c_str(), buffer_size);
+    strncpy(buffer, string->impl->c_str(), buffer_size);
 }
 
  

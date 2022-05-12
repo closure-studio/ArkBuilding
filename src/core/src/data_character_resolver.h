@@ -39,7 +39,7 @@ struct CharResolveResult
 {
     std::string char_id;
     Vector<std::string> skill_ids;
-    data::EvolvePhase phase = data::EvolvePhase::PHASE_0;
+    EvolvePhase phase = EvolvePhase::PHASE_0;
     int level = -1;
 
     [[nodiscard]] constexpr bool HasSufficientLevelCond() const
@@ -52,6 +52,7 @@ class ICharacterResolver
 {
   public:
     [[nodiscard]] virtual bool ResolveCharacter(const CharResolveParams& params, CharResolveResult& result) const = 0;
+    virtual ~ICharacterResolver() = default;
 };
 
 class CharacterResolver : public ICharacterResolver

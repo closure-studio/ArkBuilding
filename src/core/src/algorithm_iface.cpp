@@ -15,15 +15,15 @@ void launch_test(const Json::Value &player_data_json, const Json::Value &game_da
     switch (test_config.mode)
     {
     case ALBC_TEST_MODE_SEQUENTIAL:
-        algorithm::iface::run_sequential_test(player_data_json, game_data_json, test_config);
+        run_sequential_test(player_data_json, game_data_json, test_config);
         break;
 
     case ALBC_TEST_MODE_PARALLEL:
-        algorithm::iface::run_parallel_test(player_data_json, game_data_json, test_config);
+        run_parallel_test(player_data_json, game_data_json, test_config);
         break;
 
     case ALBC_TEST_MODE_ONCE:
-        algorithm::iface::test_once(player_data_json, game_data_json, test_config);
+        test_once(player_data_json, game_data_json, test_config);
         break;
 
     default:
@@ -103,10 +103,10 @@ void test_once(const Json::Value &player_data_json, const Json::Value &game_data
     all_rooms.insert(all_rooms.end(), manu_rooms.begin(), manu_rooms.end());
     all_rooms.insert(all_rooms.end(), trade_rooms.begin(), trade_rooms.end());
 
-    algorithm::MultiRoomIntegerProgramming alg_all(all_rooms, params.GetOperators(),
+    MultiRoomIntegerProgramming alg_all(all_rooms, params.GetOperators(),
                                         test_config.base_parameters.solver_parameters);
 
-    algorithm::AlgorithmResult result;
+    AlgorithmResult result;
     alg_all.Run(result);
 }
 

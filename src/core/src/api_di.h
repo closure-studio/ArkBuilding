@@ -17,7 +17,7 @@ namespace albc::api::di
 #pragma clang diagnostic ignored "-Wunneeded-internal-declaration"
 static const auto& GetInjector()
 {
-    static auto injector = boost::di::make_injector(
+    static auto injector = make_injector(
         boost::di::bind<data::building::BuildingData>().to([] { return GetGlobalGameDataStorage().Resolve<data::building::BuildingData>(ALBC_GAME_DATA_DB_BUILDING_DATA); }),
         boost::di::bind<data::game::CharacterTable>().to([] { return GetGlobalGameDataStorage().Resolve<data::game::CharacterTable>(ALBC_GAME_DATA_DB_CHARACTER_TABLE); }),
         boost::di::bind<data::game::CharacterMetaTable>().to([] { return GetGlobalGameDataStorage().Resolve<data::game::CharacterMetaTable>(ALBC_GAME_DATA_DB_CHAR_META_TABLE); }),
@@ -25,8 +25,8 @@ static const auto& GetInjector()
         boost::di::bind<data::game::ISkillLookupTable>().to<data::game::SkillLookupTable>(),
         boost::di::bind<data::game::ICharacterResolver>().to<data::game::CharacterResolver>(),
         boost::di::bind<algorithm::iface::IRunner>().to<algorithm::iface::MultiRoomIntegerProgramRunner>().in(boost::di::singleton),
-        boost::di::bind<api::IJsonWriter>().to<api::JsonWriter>().in(boost::di::singleton),
-        boost::di::bind<api::IJsonReader>().to<api::JsonReader>().in(boost::di::singleton));
+        boost::di::bind<IJsonWriter>().to<JsonWriter>().in(boost::di::singleton),
+        boost::di::bind<IJsonReader>().to<JsonReader>().in(boost::di::singleton));
 
     return injector;
 }

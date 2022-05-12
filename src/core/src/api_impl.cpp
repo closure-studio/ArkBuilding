@@ -303,7 +303,7 @@ IResult *Model::Impl::GetResult() const
     AlgorithmParams params = CreateAlgParams();
     LOG_D("Creating algorithm params: ", params.GetOperators().size(), " operators, ");
     const auto sc = SCOPE_TIMER_WITH_TRACE("Solving");
-    const auto i_runner = api::di::Resolve<algorithm::iface::IRunner>();
+    const auto i_runner = api::di::Resolve<IRunner>();
     AlbcSolverParameters sp;
     sp.gen_lp_file = false;
     sp.gen_all_solution_details = false;
