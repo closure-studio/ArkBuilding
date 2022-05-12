@@ -140,7 +140,7 @@ JSON 中的所有数据约定[同上](#使用)
       ],
       "morale": 24,
     },
-    // ... 以下省略其他干员，完整例可见 src/examples/src/json_input.cpp
+    // ... 以下省略其他干员，完整例可见 test/test_data.jsonc
   },
   "rooms": {
     "room_1": {

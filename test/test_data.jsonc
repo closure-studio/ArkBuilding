@@ -1,12 +1,3 @@
-﻿//
-// Created by Nonary on 2022/4/24.
-//
-
-#include "json_input.h"
-const char *GetTestJsonInput()
-{
-    return
-        u8R"(
 {
   // 模型时间限制，代表计算持续的时间。
   "modelTimeLimit": 57600,
@@ -162,6 +153,4 @@ const char *GetTestJsonInput()
       }
     }
   }
-}
-)";
 }

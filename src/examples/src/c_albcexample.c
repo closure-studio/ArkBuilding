@@ -1,6 +1,5 @@
 #include "c_albcexample.h"
 #include "albc/calbc.h"
-#include "json_input.h"
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -29,7 +28,7 @@ bool call_success(AlbcException *e, const char *error_msg)
     return true;
 }
 
-void c_albc_example_main(const char* building_data_path, const char *character_table_path, const char *char_meta_table_path)
+void c_albc_example_main(const char* building_data_path, const char *character_table_path, const char *char_meta_table_path, const char *test_data)
 {
     AlbcException *e = NULL;
     AlbcString *out = NULL;
@@ -40,7 +39,7 @@ void c_albc_example_main(const char* building_data_path, const char *character_t
     ALBC_CHECK(assets_fail, AlbcLoadGameDataFile(ALBC_GAME_DATA_DB_CHARACTER_TABLE, character_table_path, &e), e);
     ALBC_CHECK(assets_fail, AlbcLoadGameDataFile(ALBC_GAME_DATA_DB_CHAR_META_TABLE, char_meta_table_path, &e), e);
 
-    ALBC_CHECK(json_run_fail, out = AlbcRunWithJsonParams(GetTestJsonInput(), &e), e);
+    ALBC_CHECK(json_run_fail, out = AlbcRunWithJsonParams(test_data, &e), e);
 
     printf("%s\n", AlbcStringGetContent(out));
 
