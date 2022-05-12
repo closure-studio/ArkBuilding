@@ -78,11 +78,11 @@ CALBC_API AlbcLogLevel AlbcParseLogLevel(const char* level, AlbcLogLevel default
 // 解析测试模式字符串(ONCE, SEQUENTIAL, PARALLEL)，大小写不敏感
 CALBC_API AlbcTestMode AlbcParseTestMode(const char* mode, AlbcTestMode default_mode, CALBC_E_PTR);
 
-// 设置输出日志的方式。设为空指针来还原成默认值。
-CALBC_API void AlbcSetLogHandler(AlbcLogHandler handler, CALBC_E_PTR);
+// 设置输出日志的方式。设为空指针来还原成默认值。如果回调函数返回了false，则使用默认日志方式输出。
+CALBC_API void AlbcSetLogHandler(AlbcLogHandler handler, void *user_data, CALBC_E_PTR);
 
-// 设置清除日志缓冲区的方式。设为空指针来还原成默认值。
-CALBC_API void AlbcSetFlushLogHandler(AlbcFlushLogHandler handler, CALBC_E_PTR);
+// 设置清空日志缓冲区的方式。设为空指针来还原成默认值。如果回调函数返回了false，则使用默认日志方式输出
+CALBC_API void AlbcSetFlushLogHandler(AlbcFlushLogHandler handler, void *user_data, CALBC_E_PTR);
 
 #ifdef __cplusplus
 }

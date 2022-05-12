@@ -28,11 +28,19 @@ bool call_success(AlbcException *e, const char *error_msg)
     return true;
 }
 
+bool log_test(unsigned long logger_id , const char *msg, void* user_data)
+{
+    (void)logger_id; // Currently unused, always 0
+    printf("%s%s", (char*)user_data, msg);
+    return true;
+}
+
 void c_albc_example_main(const char* building_data_path, const char *character_table_path, const char *char_meta_table_path, const char *test_data)
 {
     AlbcException *e = NULL;
     AlbcString *out = NULL;
-
+    
+    AlbcSetLogHandler(log_test, "My logger:", NULL);
     AlbcDoLog(ALBC_LOG_LEVEL_INFO, "Starting ALBC C example", NULL);
     AlbcSetLogLevel(ALBC_LOG_LEVEL_ALL, NULL);
     ALBC_CHECK(assets_fail, AlbcLoadGameDataFile(ALBC_GAME_DATA_DB_BUILDING_DATA, building_data_path, &e), e);

@@ -24,6 +24,7 @@ class String::Impl : public std::string
     explicit Impl(const char* str);
 
     Impl(const Impl& other) = default;
+    Impl(Impl&& other)      = default;
 };
 
 template <typename T>

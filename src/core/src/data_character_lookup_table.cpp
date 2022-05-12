@@ -24,7 +24,7 @@ CharacterLookupTable::CharacterLookupTable(std::shared_ptr<CharacterTable> chara
         }
         else
         {
-            LOG_W("Duplicate character name: ", character->name);
+            LOG_E("Duplicate character name: ", character->name);
             continue;
         }
 
