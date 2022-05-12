@@ -99,7 +99,7 @@ JSON 中的所有数据约定[同上](#使用)
   // 模型时间限制，代表计算持续的时间。
   "modelTimeLimit": 57600,
   // 求解超时。
-  "solveTimeLimit": 60,
+  "solveTimeLimit": 20,
   "chars": {
     // 此处为参数组合选项1：干员+精英化+等级
     "char_1": {
@@ -191,7 +191,7 @@ JSON 中的所有数据约定[同上](#使用)
 | 参数                             | 参数类型       | 缺省值     | 参数说明                 |
 |--------------------------------|------------|---------|----------------------|
 | `modelTimeLimit`               | `double`   | `57600` | 模型时间限制，代表计算持续的时间。    |
-| `solveTimeLimit`               | `double`   | `60`    | Cbc 求解器的超时。          |
+| `solveTimeLimit`               | `double`   | `20`    | Cbc 求解器的超时。          |
 | `chars`                        | `object`   | -       | 键供在输出中区分使用。          |
 | `chars[identifier].name`       | `string`   | -       | 干员名称                 |
 | `chars[identifier].id`         | `string`   | -       | 干员ID                 |

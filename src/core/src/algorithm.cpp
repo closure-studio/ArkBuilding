@@ -653,10 +653,12 @@ void MultiRoomIntegerProgramming::Run(AlgorithmResult &out_result)
         model.initialSolve();
         model.branchAndBound();
 
+        bool solution_accepted = false;
         switch (model.status())
         {
         case 0:
             // success
+            solution_accepted = true;
             break;
 
         case 1:
@@ -664,6 +666,7 @@ void MultiRoomIntegerProgramming::Run(AlgorithmResult &out_result)
             if (model.secondaryStatus() == 4)
             {
                 LOG_W("Solving time limit exceeded.");
+                solution_accepted = true;
             }
             else
             {
@@ -679,7 +682,7 @@ void MultiRoomIntegerProgramming::Run(AlgorithmResult &out_result)
         LOG_I("Solving finished. Optimal: ", model.isProvenOptimal());
         LOG_I("Objective value: ", model.getObjValue());
 
-        if (!model.status() && model.getMinimizationObjValue() < 1e50)
+        if (solution_accepted && std::abs(model.getMinimizationObjValue()) < 1e50)
         {
             UInt32 solution_cols = model.solver()->getNumCols();
             const double *solution = model.solver()->getColSolution();

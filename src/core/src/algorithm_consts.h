@@ -2,6 +2,6 @@
 
 namespace albc::algorithm
 {
-static constexpr double kDefaultModelTimeLimit = 3600 * 4;
-static constexpr double kDefaultSolveTimeLimit = 60;
+static constexpr double kDefaultModelTimeLimit = 3600 * 16;
+static constexpr double kDefaultSolveTimeLimit = 20;
 }

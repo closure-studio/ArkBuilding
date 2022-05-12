@@ -4,6 +4,7 @@
 #include "api_json_params.h"
 #include "data_building.h"
 #include "model_buff_primitives.h"
+#include "algorithm_consts.h"
 
 namespace albc::api
 {
@@ -59,8 +60,8 @@ JsonInRoomStruct::JsonInRoomStruct(const Json::Value &val)
     }
 }
 JsonInParams::JsonInParams(const Json::Value &val)
-    : model_time_limit(val.get(kModelTimeLimit, 3600 * 16).asInt()),
-      solve_time_limit(val.get(kSolveTimeLimit, 60).asInt()),
+    : model_time_limit(val.get(kModelTimeLimit, algorithm::kDefaultModelTimeLimit).asInt()),
+      solve_time_limit(val.get(kSolveTimeLimit, algorithm::kDefaultSolveTimeLimit).asInt()),
       gen_sol_details(val.get(kGenSolDetails, false).asBool()),
       gen_lp_file(val.get(kGenLpFile, false).asBool()),
       chars(util::json_val_as_dictionary<JsonInCharStruct>(
