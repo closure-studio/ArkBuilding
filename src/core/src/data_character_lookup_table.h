@@ -27,7 +27,7 @@ class ICharacterLookupTable
 class CharacterLookupTable: public ICharacterLookupTable
 {
   public:
-    explicit CharacterLookupTable(std::shared_ptr<CharacterTable> character_table);
+    explicit CharacterLookupTable(std::shared_ptr<CharacterTable> character_table, std::shared_ptr<building::BuildingData> building_data);
 
     [[nodiscard]] std::string NameToId(const std::string &name) const override;
 
@@ -43,6 +43,7 @@ class CharacterLookupTable: public ICharacterLookupTable
 
   private:
     std::shared_ptr<CharacterTable> character_table_;
+    std::shared_ptr<building::BuildingData> building_data_;
     Dictionary<std::string, std::string> name_to_id_;
     Dictionary<std::string, std::string> appellation_to_id_;
 };

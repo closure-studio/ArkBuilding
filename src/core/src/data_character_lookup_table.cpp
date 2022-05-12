@@ -6,12 +6,28 @@
 namespace albc::data::game
 {
 
-CharacterLookupTable::CharacterLookupTable(std::shared_ptr<CharacterTable> character_table)
-    : character_table_(std::move(character_table))
+CharacterLookupTable::CharacterLookupTable(std::shared_ptr<CharacterTable> character_table,
+                                           std::shared_ptr<building::BuildingData> building_data)
+    : character_table_(std::move(character_table)),
+      building_data_(std::move(building_data))
 {
     for (auto &[char_id, character] : *character_table_)
     {
-        name_to_id_[character->name] = char_id;
+        // 只加入building_data中存在的角色ID，character_table里面角色名称存在重复（如两个断罪者）
+        if (!building_data_->chars.count(char_id))
+            continue;
+
+        auto name_it = name_to_id_.find(character->name);
+        if (name_it == name_to_id_.end())
+        {
+            name_to_id_.emplace(character->name, char_id);
+        }
+        else
+        {
+            LOG_W("Duplicate character name: ", character->name);
+            continue;
+        }
+
         if (!character->appellation.empty())
             appellation_to_id_[character->appellation] = char_id;
     }

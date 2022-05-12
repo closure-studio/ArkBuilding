@@ -250,10 +250,7 @@ AlgorithmParams::AlgorithmParams(const CustomPackedInput &custom_input,
             op->ResolvePatches();
         }
 
-        if (op->buffs.empty())
-        {
-            LOG_W("Operator has no buffs! : ", custom_char.identifier);
-        }
+        // TODO:如果没有buff，尝试代入羁绊/联动体系
     }
 
     for (const auto &custom_room : custom_input.rooms)
